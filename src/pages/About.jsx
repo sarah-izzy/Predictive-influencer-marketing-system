@@ -70,7 +70,7 @@ const About = () => {
           How It Works
         </h3>
         <ul>
-          <li>Marketing teams input influencer metrics (followers, engagement, likes, category)</li>
+          <li>Marketing teams and strategists input influencer metrics (followers, engagement, likes, category)</li>
           <li>The ML model analyzes engagement patterns and historical performance data</li>
           <li>A success probability score and ROI forecast are generated</li>
           <li>The interactive dashboard visualizes rankings, trends, and comparisons</li>

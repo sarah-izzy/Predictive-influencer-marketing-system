@@ -65,7 +65,7 @@ const BrandSidebar = ({ isOpen, onClose }) => {
 
         {user && (
           <div className="sidebar-user-card">
-            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-600), var(--accent-500))' }}>
               {user.avatar}
             </div>
             <div className="sidebar-user-info">

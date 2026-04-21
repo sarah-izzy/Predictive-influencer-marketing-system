@@ -61,7 +61,7 @@ const BrandOverview = () => {
           title="Active Campaigns"
           value={activeCampaigns}
           icon={Target}
-          iconBg="linear-gradient(135deg, #22c55e, #4ade80)"
+          iconBg="linear-gradient(135deg, var(--success-500), var(--success-400))"
           glowColor="#22c55e"
           change="2 new"
           changeType="positive"
@@ -71,7 +71,7 @@ const BrandOverview = () => {
           title="Avg. ROI"
           value={`${avgROI}%`}
           icon={TrendingUp}
-          iconBg="linear-gradient(135deg, #6366f1, #818cf8)"
+          iconBg="linear-gradient(135deg, var(--primary-600), var(--primary-400))"
           glowColor="#6366f1"
           change="15.3%"
           changeType="positive"
@@ -81,7 +81,7 @@ const BrandOverview = () => {
           title="Total Influencers"
           value={influencers.length}
           icon={Users}
-          iconBg="linear-gradient(135deg, #a855f7, #c084fc)"
+          iconBg="linear-gradient(135deg, var(--accent-500), var(--accent-400))"
           glowColor="#a855f7"
           change="8.2%"
           changeType="positive"
@@ -91,7 +91,7 @@ const BrandOverview = () => {
           title="Budget Spent"
           value={`$${(totalSpent / 1000).toFixed(1)}K`}
           icon={DollarSign}
-          iconBg="linear-gradient(135deg, #f97316, #fb923c)"
+          iconBg="linear-gradient(135deg, var(--warning-500), var(--warning-400))"
           glowColor="#f97316"
           subtext={`of $${(totalBudget / 1000).toFixed(1)}K total`}
         />
@@ -123,8 +123,8 @@ const BrandOverview = () => {
               <AreaChart data={engagementTrends}>
                 <defs>
                   <linearGradient id="engGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--primary-600)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--primary-600)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -134,11 +134,11 @@ const BrandOverview = () => {
                 <Area
                   type="monotone"
                   dataKey={trendMetric}
-                  stroke="#6366f1"
+                  stroke="var(--primary-600)"
                   strokeWidth={2}
                   fill="url(#engGrad)"
-                  dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: '#818cf8', strokeWidth: 2, stroke: '#6366f1' }}
+                  dot={{ r: 3, fill: 'var(--primary-600)', strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: 'var(--primary-400)', strokeWidth: 2, stroke: 'var(--primary-600)' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -254,7 +254,7 @@ const BrandOverview = () => {
                           className="engagement-bar-fill"
                           style={{
                             width: `${(inf.engagement / 10) * 100}%`,
-                            background: 'linear-gradient(90deg, var(--primary-500), var(--accent-500))',
+                            background: 'linear-gradient(90deg, var(--primary-600), var(--accent-500))',
                           }}
                         />
                       </div>

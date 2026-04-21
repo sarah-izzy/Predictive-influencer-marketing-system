@@ -69,7 +69,7 @@ const InfluencerSidebar = ({ isOpen, onClose }) => {
 
         {user && (
           <div className="sidebar-user-card">
-            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, #f97316, #fb923c)' }}>
+            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-600), var(--accent-500))' }}>
               {user.avatar}
             </div>
             <div className="sidebar-user-info">
