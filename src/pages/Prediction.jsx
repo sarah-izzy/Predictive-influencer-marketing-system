@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RadialBarChart, RadialBar, ResponsiveContainer,
 } from 'recharts';
 import { BrainCircuit, Zap, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { predictCampaign } from '../services/api';
+import { predictCampaign, testBackendIntegration } from '../services/api';
 
 const Prediction = () => {
   const [formData, setFormData] = useState({
@@ -13,10 +13,29 @@ const Prediction = () => {
     engagementRate: '',
     postFrequency: '',
     category: 'Lifestyle',
+    platform: 'Instagram',
+    budget: '5000',
+    campaignGoal: 'Sales Conversion',
+    fakeFollowerPct: '8',
+    authenticityScore: '80',
+    brandAlignment: '0.7',
+    ageMatchScore: '0.5',
+    geoMatch: '1',
+    sentimentScore: '0.65',
+    paymentModel: 'Flat Fee',
   });
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
+
+  useEffect(() => {
+    const testBackend = async () => {
+      const test = await testBackendIntegration();
+      setBackendStatus(test.success ? 'connected' : 'error');
+    };
+    testBackend();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,9 +47,23 @@ const Prediction = () => {
     setResult(null);
     try {
       const response = await predictCampaign(formData);
-      setResult(response.data);
-    } catch {
-      alert('Error fetching prediction');
+      // Map backend response to frontend format
+      const mappedResult = {
+        predictedSuccessScore: Math.round((response.data.pred_success || 0) * 100),
+        predictedEngagementRate: (response.data.pred_er || 0) * 100,
+        predictedConversionRate: (response.data.pred_cvr || 0) * 100,
+        predictedRevenue: response.data.pred_revenue || 0,
+        confidence: 0.85, // Default confidence for now
+        // Backend raw values
+        pred_er: response.data.pred_er,
+        pred_cvr: response.data.pred_cvr,
+        pred_success: response.data.pred_success,
+        pred_revenue: response.data.pred_revenue,
+      };
+      setResult(mappedResult);
+    } catch (error) {
+      console.error('Prediction error:', error);
+      alert(`Error fetching prediction: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -46,7 +79,22 @@ const Prediction = () => {
 
   return (
     <div>
-      <h2 className="page-title">Campaign Predictor</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+        <h2 className="page-title">Campaign Predictor</h2>
+        <div style={{
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-full)',
+          fontSize: '12px',
+          fontWeight: '500',
+          background: backendStatus === 'connected' ? 'var(--success-50)' : 
+                      backendStatus === 'error' ? 'var(--danger-50)' : 'var(--gray-100)',
+          color: backendStatus === 'connected' ? 'var(--success-600)' : 
+                  backendStatus === 'error' ? 'var(--danger-600)' : 'var(--gray-600)',
+        }}>
+          {backendStatus === 'connected' ? 'Backend Connected' : 
+           backendStatus === 'error' ? 'Backend Error' : 'Checking Backend...'}
+        </div>
+      </div>
       <p className="page-subtitle">Enter influencer metrics to generate an ML-powered success forecast</p>
 
       <div className="prediction-grid">

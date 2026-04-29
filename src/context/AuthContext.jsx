@@ -3,18 +3,20 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 const mockUsers = {
-  brand: {
+  'brand@test.com': {
     id: 'brand-001',
     name: 'Acme Marketing',
-    email: 'sarah@acmemarketing.com',
+    email: 'brand@test.com',
+    username: 'brand_user',
     role: 'brand',
     avatar: 'A',
     company: 'Acme Corp',
   },
-  influencer: {
+  'influencer@test.com': {
     id: 'inf-004',
     name: 'Travel Vibes',
-    email: 'travel@vibes.com',
+    email: 'influencer@test.com',
+    username: 'travel_vibes',
     role: 'influencer',
     avatar: 'T',
     category: 'Lifestyle',
@@ -29,6 +31,11 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [selectedRole, setSelectedRole] = useState(() => {
+    const saved = localStorage.getItem('influencerAI_role');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   useEffect(() => {
     if (user) {
       localStorage.setItem('influencerAI_user', JSON.stringify(user));
@@ -37,18 +44,42 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
-  const login = (role) => {
-    const userData = mockUsers[role];
+  useEffect(() => {
+    if (selectedRole) {
+      localStorage.setItem('influencerAI_role', JSON.stringify(selectedRole));
+    } else {
+      localStorage.removeItem('influencerAI_role');
+    }
+  }, [selectedRole]);
+
+  const setRole = (role) => {
+    setSelectedRole(role);
+  };
+
+  // Demo login - in production, this would make an API call
+  const login = (email, username, password, role) => {
+    // For demo purposes, accept any credentials if role is set
+    const userData = {
+      id: role === 'brand' ? `brand-${Date.now()}` : `inf-${Date.now()}`,
+      name: username,
+      email: email,
+      username: username,
+      role: role,
+      avatar: username.charAt(0).toUpperCase(),
+      ...(role === 'brand' ? { company: 'Demo Company' } : { category: 'Lifestyle', followers: 10000, tier: 'Growing' }),
+    };
     setUser(userData);
+    setSelectedRole(role);
     return userData;
   };
 
   const logout = () => {
     setUser(null);
+    setSelectedRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, selectedRole, setRole }}>
       {children}
     </AuthContext.Provider>
   );

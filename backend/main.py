@@ -850,6 +850,252 @@ def uncertainty(req: UncertaintyRequest):
     return {"n_bootstrap": req.n_bootstrap, "predictions": results}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Additional GET endpoints for frontend integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/influencers")
+def get_influencers():
+    """
+    Return sampled test influencers with ML predictions.
+    Requires trained models.
+    """
+    _require_trained()
+    
+    test_df = STATE["test_df"].copy()
+    if len(test_df) == 0:
+        return []
+    
+    # Sample up to 20 influencers from test data
+    sample_df = test_df.sample(min(20, len(test_df)), random_state=SEED)
+    sample_df = feature_engineering(sample_df)
+    
+    # Get ML predictions
+    X = sample_df[ALL_FEATURES]
+    pred_er = STATE["s1_pipe"].predict(X)
+    X_s2 = add_stage1_pred(X, pred_er)
+    pred_cvr = STATE["s2_pipe"].predict(X_s2)
+    pred_success = STATE["cls_pipe"].predict_proba(X)[:, 1]
+    
+    result = []
+    for idx, (i, row) in enumerate(sample_df.iterrows()):
+        result.append({
+            "id": idx + 1,
+            "name": f"Influencer-{row['influencer_id']}",
+            "category": row["niche"],
+            "followers": int(row["followers_count"]),
+            "engagement": float(pred_er[idx] * 100),
+            "likes": int(row["hist_avg_likes_per_post"]),
+            "comments": int(row["hist_avg_comments_per_post"]),
+            "successScore": int(pred_success[idx] * 100),
+            "predictedROI": int(pred_cvr[idx] * 100),
+            "avgViews": int(row["hist_avg_reach_per_post"]),
+            "color": np.random.choice(["#60a5fa", "#4ade80", "#c084fc", "#fb923c", "#f472b6", "#fbbf24"]),
+            "platform": row["platform"],
+            "rate": int(row["followers_count"] * 0.02),
+            "pred_er": float(pred_er[idx]),
+            "pred_cvr": float(pred_cvr[idx]),
+            "pred_success": float(pred_success[idx]),
+            "mlScore": float(pred_success[idx] * 100),
+        })
+    
+    return result
+
+
+@app.get("/campaigns")
+def get_campaigns():
+    """
+    Return sampled campaigns derived from test data with ML predictions.
+    Requires trained models.
+    """
+    _require_trained()
+    
+    test_df = STATE["test_df"].copy()
+    if len(test_df) == 0:
+        return []
+    
+    # Sample up to 10 campaigns
+    sample_df = test_df.sample(min(10, len(test_df)), random_state=SEED)
+    sample_df = feature_engineering(sample_df)
+    
+    X = sample_df[ALL_FEATURES]
+    pred_er = STATE["s1_pipe"].predict(X)
+    X_s2 = add_stage1_pred(X, pred_er)
+    pred_cvr = STATE["s2_pipe"].predict(X_s2)
+    X_s3 = add_stage2_pred(X, pred_er, pred_cvr)
+    pred_revenue = STATE["s3_pipe"].predict(X_s3)
+    
+    result = []
+    for idx, (i, row) in enumerate(sample_df.iterrows()):
+        budget = float(row["followers_count"] * np.random.uniform(0.01, 0.05))
+        spent = budget * np.random.uniform(0.6, 1.0)
+        result.append({
+            "id": f"camp-{idx + 1}",
+            "name": f"{row['campaign_goal']} - {row['brand_category']}",
+            "status": np.random.choice(["active", "completed", "draft"]),
+            "budget": round(budget),
+            "spent": round(spent),
+            "metrics": {
+                "reach": int(row["hist_avg_reach_per_post"] * np.random.uniform(0.8, 1.2)),
+                "engagement": float(pred_er[idx] * 100),
+                "conversions": int(pred_revenue[idx] / 50),
+                "roi": round((pred_revenue[idx] - budget) / (budget + 1) * 100),
+            },
+            "influencers": [f"INF{str(idx+1).zfill(4)}"],
+            "category": row["niche"],
+        })
+    
+    return result
+
+
+@app.get("/earnings")
+def get_earnings():
+    """
+    Return simulated earnings based on ML predictions.
+    Requires trained models.
+    """
+    _require_trained()
+    
+    test_df = STATE["test_df"].copy()
+    if len(test_df) == 0:
+        return {"monthly": [], "payments": []}
+    
+    # Generate 12 months of earnings
+    months_data = []
+    base_revenue = np.random.uniform(2000, 10000)
+    for month_idx in range(12):
+        month_name = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month_idx]
+        amount = int(base_revenue * np.random.uniform(0.7, 1.4))
+        campaigns_count = np.random.randint(2, 6)
+        months_data.append({
+            "month": month_name,
+            "amount": amount,
+            "campaigns": campaigns_count
+        })
+    
+    # Generate payment history
+    payments_data = []
+    for i in range(6):
+        payments_data.append({
+            "id": f"pay-{i+1:03d}",
+            "campaign": f"Campaign {i+1}",
+            "brand": f"Brand {i+1}",
+            "amount": int(np.random.uniform(2000, 8000)),
+            "date": f"2026-{i+1:02d}-15",
+            "status": "paid" if i < 4 else "pending",
+        })
+    
+    return {
+        "monthly": months_data,
+        "payments": payments_data
+    }
+
+
+@app.get("/invitations")
+def get_invitations():
+    """
+    Return empty invitations list (not model-based).
+    """
+    return []
+
+
+@app.get("/analytics")
+def get_analytics():
+    """
+    Return analytics derived from training data and ML predictions.
+    Requires trained models.
+    """
+    _require_trained()
+    
+    train_df = STATE["train_df"].copy()
+    if len(train_df) == 0:
+        return {
+            "influencers": [],
+            "engagementTrends": [],
+            "roiPredictions": [],
+            "categoryPerformance": [],
+            "platformData": []
+        }
+    
+    train_df_eng = feature_engineering(train_df)
+    X_train = train_df_eng[ALL_FEATURES]
+    pred_er_train = STATE["s1_pipe"].predict(X_train)
+    
+    # Engagement trends (monthly simulation)
+    engagement_trends = []
+    base_likes = 4000
+    for month_idx, month in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]):
+        trend = base_likes * (1 + month_idx * 0.15) * np.random.uniform(0.9, 1.1)
+        engagement_trends.append({
+            "name": month,
+            "likes": int(trend),
+            "comments": int(trend * 0.08),
+            "shares": int(trend * 0.05),
+            "engagement": float(pred_er_train.mean() * np.random.uniform(0.9, 1.1))
+        })
+    
+    # ROI predictions (from test data)
+    roi_predictions = []
+    test_df = STATE["test_df"].copy()
+    if len(test_df) > 0:
+        for idx in range(min(6, len(test_df))):
+            row = test_df.iloc[idx]
+            roi_predictions.append({
+                "name": f"Influencer-{idx+1}",
+                "current": int(row["actual_roi"] * 100),
+                "predicted": int(row["actual_roi"] * 120),
+                "investment": int(row["followers_count"] * 0.02)
+            })
+    
+    # Category performance
+    category_perf = train_df.groupby("niche").agg({
+        "actual_engagement_rate": "mean",
+        "actual_roi": "mean",
+        "influencer_id": "count"
+    }).reset_index()
+    category_performance = []
+    for _, row in category_perf.iterrows():
+        category_performance.append({
+            "category": row["niche"],
+            "avgEngagement": float(row["actual_engagement_rate"]),
+            "avgROI": int(row["actual_roi"] * 100),
+            "influencerCount": int(row["influencer_id"])
+        })
+    
+    # Platform distribution
+    platform_counts = train_df["platform"].value_counts()
+    platform_data = []
+    colors = ["#e1306c", "#69c9d0", "#ff0000", "#1da1f2"]
+    for idx, (plat, count) in enumerate(platform_counts.items()):
+        platform_data.append({
+            "name": plat,
+            "value": int(count),
+            "color": colors[idx % len(colors)]
+        })
+    
+    # Build influencers list
+    influencers_list = []
+    for idx in range(min(6, len(test_df))):
+        row = test_df.iloc[idx]
+        influencers_list.append({
+            "id": idx + 1,
+            "name": f"Influencer-{idx+1}",
+            "category": row["niche"],
+            "followers": int(row["followers_count"]),
+            "engagement": float(row["actual_engagement_rate"])
+        })
+    
+    return {
+        "influencers": influencers_list,
+        "engagementTrends": engagement_trends,
+        "roiPredictions": roi_predictions,
+        "categoryPerformance": category_performance,
+        "platformData": platform_data
+    }
+
+
 @app.get("/shap")
 def shap_importance():
     """

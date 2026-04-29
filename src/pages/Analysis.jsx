@@ -5,7 +5,7 @@ import {
   ScatterChart, Scatter, ZAxis, Cell,
 } from 'recharts';
 import { Search, Filter, ArrowUpRight } from 'lucide-react';
-import { influencers, categoryPerformance } from '../data/dummyData';
+import { influencers } from '../data/dummyData';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;

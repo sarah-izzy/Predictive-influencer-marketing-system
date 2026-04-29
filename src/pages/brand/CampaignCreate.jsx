@@ -8,11 +8,10 @@ import { predictCampaign, checkHealth, trainModels } from '../../services/api';
 
 const CampaignCreate = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     campaignName: '',
     budget: '',
-    category: 'Lifestyle',
+    category: 'Beauty',
     platform: 'Instagram',
     campaignGoal: 'Sales Conversion',
     targetAudience: '',
@@ -62,7 +61,6 @@ const CampaignCreate = () => {
     try {
       const response = await predictCampaign(formData);
       setResult(response.data);
-      setStep(2);
     } catch (err) {
       alert('Error generating prediction: ' + err.message);
     } finally {
@@ -130,14 +128,12 @@ const CampaignCreate = () => {
               <div className="form-group">
                 <label className="form-label">Category / Niche</label>
                 <select name="category" className="form-select" onChange={handleChange} value={formData.category}>
-                  <option>Lifestyle</option>
                   <option>Tech</option>
                   <option>Fashion</option>
                   <option>Gaming</option>
                   <option>Health</option>
                   <option>Food</option>
                   <option>Beauty</option>
-                  <option>Fitness</option>
                   <option>Travel</option>
                   <option>Finance</option>
                 </select>
@@ -249,7 +245,7 @@ const CampaignCreate = () => {
                     <span style={{ fontSize: 11, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Engagement Rate</span>
                   </div>
                   <div className="roi-value" style={{ fontSize: 22, color: 'var(--primary-400)' }}>
-                    {result.pred_engagement_rate?.toFixed(2)}%
+                    {(result.pred_engagement_rate || 0).toFixed(2)}%
                   </div>
                 </div>
                 <div className="roi-card">
@@ -258,7 +254,7 @@ const CampaignCreate = () => {
                     <span style={{ fontSize: 11, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Conversion Rate</span>
                   </div>
                   <div className="roi-value" style={{ fontSize: 22, color: 'var(--accent-400)' }}>
-                    {result.pred_conversion_rate?.toFixed(2)}%
+                    {(result.pred_conversion_rate || 0).toFixed(2)}%
                   </div>
                 </div>
                 <div className="roi-card">

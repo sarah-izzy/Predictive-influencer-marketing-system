@@ -1,9 +1,10 @@
+import React, { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { DollarSign, TrendingUp, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import Card from '../../components/common/Card';
-import { earningsData, paymentHistory } from '../../data/dummyData';
+import { getEarnings } from '../../services/api';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -20,12 +21,42 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const Earnings = () => {
-  const totalEarnings = earningsData.reduce((s, e) => s + e.amount, 0);
-  const totalCampaigns = earningsData.reduce((s, e) => s + e.campaigns, 0);
-  const avgPerCampaign = Math.round(totalEarnings / totalCampaigns);
-  const highestMonth = earningsData.reduce((a, b) => a.amount > b.amount ? a : b);
-  const pendingPayments = paymentHistory.filter(p => p.status === 'pending');
+  const [earningsData, setEarningsData] = useState({ monthly: [], payments: [] });
+  const [loading, setLoading] = useState(true);
+
+  // Load earnings data on component mount
+  React.useEffect(() => {
+    const loadEarnings = async () => {
+      try {
+        const data = await getEarnings();
+        setEarningsData(data || { monthly: [], payments: [] });
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to load earnings:', error);
+        setEarningsData({ monthly: [], payments: [] });
+        setLoading(false);
+      }
+    };
+    loadEarnings();
+  }, []);
+
+  const monthlyData = earningsData?.monthly || [];
+  const paymentHistoryList = earningsData?.payments || [];
+  const totalEarnings = monthlyData.reduce((s, e) => s + e.amount, 0);
+  const totalCampaigns = monthlyData.reduce((s, e) => s + e.campaigns, 0);
+  const avgPerCampaign = totalCampaigns ? Math.round(totalEarnings / totalCampaigns) : 0;
+  const highestMonth = monthlyData.reduce((a, b) => (a.amount > b.amount ? a : b), { amount: 0, month: 'N/A' });
+  const pendingPayments = paymentHistoryList.filter(p => p.status === 'pending');
   const pendingAmount = pendingPayments.reduce((s, p) => s + p.amount, 0);
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading earnings data...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -58,7 +89,7 @@ const Earnings = () => {
           icon={Calendar}
           iconBg="linear-gradient(135deg, #f97316, #fb923c)"
           glowColor="#f97316"
-          subtext={highestMonth.month}
+          subtext={highestMonth.month || 'N/A'}
         />
         <Card
           title="Pending Payments"
@@ -81,7 +112,7 @@ const Earnings = () => {
           </div>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={earningsData} barSize={32}>
+              <BarChart data={monthlyData} barSize={32}>
                 <defs>
                   <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#22c55e" />
@@ -119,7 +150,7 @@ const Earnings = () => {
               </tr>
             </thead>
             <tbody>
-              {paymentHistory.map(p => (
+              {paymentHistoryList.map(p => (
                 <tr key={p.id}>
                   <td style={{ fontWeight: 600, color: '#e2e8f0' }}>{p.campaign}</td>
                   <td style={{ color: 'var(--gray-300)' }}>{p.brand}</td>

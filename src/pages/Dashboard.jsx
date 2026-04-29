@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { Users, TrendingUp, DollarSign, Target, ArrowUpRight, Eye } from 'lucide-react';
 import Card from '../components/common/Card';
-import { influencers, engagementTrends, roiPredictions, categoryPerformance, platformData } from '../data/dummyData';
+import { getAnalytics } from '../services/api';
 
 /* Custom chart tooltip */
 const CustomTooltip = ({ active, payload, label }) => {
@@ -38,19 +38,49 @@ const rankedInfluencers = [...influencers].sort((a, b) => b.successScore - a.suc
 
 const Dashboard = () => {
   const [engagementMetric, setEngagementMetric] = useState('likes');
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  /* Aggregate stats */
-  const totalFollowers = influencers.reduce((sum, i) => sum + i.followers, 0);
-  const avgEngagement = (influencers.reduce((sum, i) => sum + i.engagement, 0) / influencers.length).toFixed(1);
-  const avgROI = Math.round(influencers.reduce((sum, i) => sum + i.predictedROI, 0) / influencers.length);
+  // Load analytics data on component mount
+  React.useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        const data = await getAnalytics();
+        setAnalyticsData(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to load analytics:', error);
+        setLoading(false);
+      }
+    };
+    loadAnalytics();
+  }, []);
+
+}
+
+  // Aggregate stats with loading check
+  const totalFollowers = analyticsData?.influencers?.reduce((sum, i) => sum + i.followers, 0) || 0;
+  const avgEngagement = analyticsData?.influencers ? 
+    (analyticsData.influencers.reduce((sum, i) => sum + i.engagement, 0) / analyticsData.influencers.length).toFixed(1) : '0';
+  const avgROI = analyticsData?.influencers ? 
+    Math.round(analyticsData.influencers.reduce((sum, i) => sum + i.predictedROI, 0) / analyticsData.influencers.length) : 0;
   const totalCampaigns = 24;
 
   /* Radial data for ROI */
-  const roiRadialData = roiPredictions.map((r, i) => ({
+  const roiRadialData = analyticsData?.roiPredictions?.map((r, i) => ({
     name: r.name,
     predicted: r.predicted,
-    fill: influencers[i]?.color || '#6366f1',
-  }));
+    fill: analyticsData?.influencers?.[i]?.color || '#6366f1',
+  })) || [];
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading analytics data...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -100,6 +130,7 @@ const Dashboard = () => {
           subtext="Currently running"
         />
       </div>
+      
 
       {/* ── Charts Row ── */}
       <div className="charts-grid">
@@ -124,7 +155,7 @@ const Dashboard = () => {
           </div>
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={engagementTrends}>
+              <AreaChart data={analyticsData?.engagementTrends || []}>
                 <defs>
                   <linearGradient id="engagementGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -159,7 +190,7 @@ const Dashboard = () => {
           </div>
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={categoryPerformance} barSize={28}>
+              <BarChart data={analyticsData?.categoryPerformance || []} barSize={28}>
                 <defs>
                   <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#a855f7" />
@@ -183,24 +214,21 @@ const Dashboard = () => {
         <div className="chart-card" style={{ animationDelay: '0.3s' }}>
           <div className="chart-card-header">
             <div>
-              <div className="chart-card-title">Predicted ROI Values</div>
-              <div className="chart-card-subtitle">Current vs. ML-predicted ROI</div>
+              <div className="chart-card-title">ROI Predictions</div>
+              <div className="chart-card-subtitle">ML model forecast</div>
             </div>
           </div>
-          <div style={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={roiPredictions} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="name" stroke="#4b5563" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} unit="%" />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="current" name="Current ROI" fill="#374151" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="predicted" name="Predicted ROI" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>    
-          <div className="roi-cards-grid">
-            {roiPredictions.slice(0, 3).map((r) => (
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={analyticsData?.roiPredictions || []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
+              <XAxis dataKey="name" stroke="var(--gray-400)" />
+              <YAxis stroke="var(--gray-400)" />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="predicted" fill="var(--primary-500)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="roi-grid" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
+            {analyticsData?.roiPredictions?.map((r) => (
               <div className="roi-card" key={r.name}>
                 <div className="roi-value" style={{ color: '#22c55e' }}>+{r.predicted - r.current}%</div>
                 <div className="roi-label">{r.name} growth</div>
@@ -221,7 +249,7 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={platformData}
+                  data={analyticsData?.platformData || []}
                   cx="50%"
                   cy="50%"
                   innerRadius={70}
@@ -230,7 +258,7 @@ const Dashboard = () => {
                   dataKey="value"
                   stroke="none"
                 >
-                  {platformData.map((entry, index) => (
+                  {(analyticsData?.platformData || []).map((entry, index) => (
                     <Cell key={index} fill={entry.color} />
                   ))}
                 </Pie>

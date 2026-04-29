@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Target, TrendingUp, Users, DollarSign, ArrowUpRight, Clock, CheckCircle2 } from 'lucide-react';
 import Card from '../../components/common/Card';
-import { influencers, engagementTrends, campaigns, categoryPerformance, platformData } from '../../data/dummyData';
+import { getInfluencers, getCampaigns, getAnalytics } from '../../services/api';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -29,25 +29,60 @@ const getScoreClass = (score) => {
 
 const BrandOverview = () => {
   const [trendMetric, setTrendMetric] = useState('likes');
+  const [influencersData, setInfluencersData] = useState([]);
+  const [campaignsData, setCampaignsData] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-  const completedCampaigns = campaigns.filter(c => c.status === 'completed').length;
-  const totalBudget = campaigns.reduce((s, c) => s + c.budget, 0);
-  const totalSpent = campaigns.reduce((s, c) => s + c.spent, 0);
-  const avgROI = Math.round(
-    campaigns.filter(c => c.metrics.roi > 0).reduce((s, c) => s + c.metrics.roi, 0) /
-    campaigns.filter(c => c.metrics.roi > 0).length
-  );
+  // Load data on component mount
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [influencers, campaigns, analytics] = await Promise.all([
+          getInfluencers(),
+          getCampaigns(),
+          getAnalytics()
+        ]);
+        setInfluencersData(influencers);
+        setCampaignsData(campaigns);
+        setAnalyticsData(analytics);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const engagementTrends = analyticsData?.engagementTrends || [];
+  const activeCampaigns = campaignsData.filter(c => c.status === 'active').length;
+  const completedCampaigns = campaignsData.filter(c => c.status === 'completed').length;
+  const totalBudget = campaignsData.reduce((s, c) => s + c.budget, 0);
+  const totalSpent = campaignsData.reduce((s, c) => s + c.spent, 0);
+  const roiCampaigns = campaignsData.filter(c => c.metrics?.roi > 0);
+  const avgROI = roiCampaigns.length
+    ? Math.round(roiCampaigns.reduce((s, c) => s + c.metrics.roi, 0) / roiCampaigns.length)
+    : 0;
 
   const top5 = useMemo(
-    () => [...influencers].sort((a, b) => b.successScore - a.successScore).slice(0, 5),
-    []
+    () => [...influencersData].sort((a, b) => b.successScore - a.successScore).slice(0, 5),
+    [influencersData]
   );
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading brand dashboard...</p>
+      </div>
+    );
+  }
 
   const campaignStatusData = [
     { name: 'Active', value: activeCampaigns, color: '#22c55e' },
     { name: 'Completed', value: completedCampaigns, color: '#6366f1' },
-    { name: 'Draft', value: campaigns.filter(c => c.status === 'draft').length, color: '#4b5563' },
+    { name: 'Draft', value: campaignsData.filter(c => c.status === 'draft').length, color: '#4b5563' },
   ];
 
   return (
@@ -79,7 +114,7 @@ const BrandOverview = () => {
         />
         <Card
           title="Total Influencers"
-          value={influencers.length}
+          value={influencersData.length}
           icon={Users}
           iconBg="linear-gradient(135deg, var(--accent-500), var(--accent-400))"
           glowColor="#a855f7"
@@ -186,7 +221,7 @@ const BrandOverview = () => {
 
           {/* Active campaigns summary */}
           <div style={{ marginTop: 16 }}>
-            {campaigns.filter(c => c.status === 'active').map(c => (
+            {campaignsData.filter(c => c.status === 'active').map(c => (
               <div key={c.id} className="campaign-mini-row">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Clock size={14} style={{ color: 'var(--success-400)' }} />

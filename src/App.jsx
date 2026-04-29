@@ -11,6 +11,7 @@ import InfluencerSidebar from './components/influencer/InfluencerSidebar';
 
 // Public
 import Login from './pages/Login';
+import Home from './pages/Home';
 
 // Brand pages
 import BrandOverview from './pages/brand/BrandOverview';
@@ -34,13 +35,14 @@ function App() {
   const location = useLocation();
 
   const isLoginPage = location.pathname === '/login';
+  const isHomePage = location.pathname === '/';
   const isBrand = user?.role === 'brand';
   const isInfluencer = user?.role === 'influencer';
 
   return (
-    <div className={`app-layout ${isLoginPage ? 'no-sidebar' : ''}`}>
+    <div className={`app-layout ${(isLoginPage || isHomePage) ? 'no-sidebar' : ''}`}>
       {/* Sidebar overlay for mobile */}
-      {!isLoginPage && isAuthenticated && (
+      {!isLoginPage && !isHomePage && isAuthenticated && (
         <div
           className={`sidebar-overlay ${sidebarOpen ? 'show' : ''}`}
           onClick={() => setSidebarOpen(false)}
@@ -48,17 +50,18 @@ function App() {
       )}
 
       {/* Conditional Sidebar */}
-      {!isLoginPage && isAuthenticated && isBrand && (
+      {!isLoginPage && !isHomePage && isAuthenticated && isBrand && (
         <BrandSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       )}
-      {!isLoginPage && isAuthenticated && isInfluencer && (
+      {!isLoginPage && !isHomePage && isAuthenticated && isInfluencer && (
         <InfluencerSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       )}
 
       {/* Main Content */}
-      <main className={`main-content ${isLoginPage ? 'main-content-full' : ''}`}>
+      <main className={`main-content ${(isLoginPage || isHomePage) ? 'main-content-full' : ''}`}>
         <Routes>
           {/* Public */}
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
 
           {/* Brand routes */}

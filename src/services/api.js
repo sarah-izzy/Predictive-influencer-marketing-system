@@ -1,6 +1,4 @@
-import { influencers, campaigns, campaignInvitations, earningsData, paymentHistory } from '../data/dummyData';
-
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:8000';
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 const apiFetch = async (path, options = {}) => {
@@ -110,67 +108,61 @@ export const predictCampaign = async (formData) => {
 // ─── Recommendation API ──────────────────────────────────────────────────────
 
 /**
- * Build a pool of influencer dicts from dummyData,
- * send to POST /recommend for ML-ranked results.
+ * Generate ML-ranked recommendations by creating a synthetic pool
+ * and sending it to the backend /recommend endpoint for model-based ranking.
  */
 export const getRecommendedInfluencers = async (filters = {}) => {
-  // Build pool from local influencer data with backend-required fields
-  const pool = influencers.map((inf) => {
-    const nicheMap = {
-      Tech: 'Tech', Health: 'Health', Gaming: 'Gaming',
-      Lifestyle: 'Lifestyle', Food: 'Food', Fashion: 'Fashion',
-      Beauty: 'Beauty', Fitness: 'Fitness', Travel: 'Travel', Finance: 'Finance',
-    };
-
-    return {
-      influencer_id: `INF${String(inf.id).padStart(4, '0')}`,
-      followers_count: inf.followers,
-      hist_avg_likes_per_post: inf.likes,
-      hist_avg_comments_per_post: inf.comments,
-      hist_avg_reach_per_post: inf.avgViews || inf.followers * 0.25,
-      fake_follower_pct: 8.0,
-      audience_authenticity_score: 82.0,
-      brand_alignment_score: inf.successScore / 100,
-      audience_age_match_score: 0.5,
-      audience_geo_match: 1,
-      hist_sentiment_score: 0.7,
-      engagement_per_follower: inf.engagement / 100,
-      interaction_velocity: Math.min(0.4, inf.comments / (inf.likes + 1)),
-      reach_quality_score: 0.35,
-      content_consistency_score: 55,
-      audience_concentration_score: 0.65,
-      hist_posts_per_week: 4.0,
-      hist_avg_shares_per_post: inf.likes * 0.09,
-      hist_avg_saves_per_post: inf.likes * 0.07,
-      account_age_years: 3.0,
-      is_verified: inf.followers > 100000 ? 1 : 0,
-      platform: inf.platform || 'Instagram',
-      niche: nicheMap[inf.category] || 'Lifestyle',
-      influencer_tier:
-        inf.followers < 10000 ? 'Nano' :
-        inf.followers < 100000 ? 'Micro' :
-        inf.followers < 500000 ? 'Mid-Tier' :
-        inf.followers < 1000000 ? 'Macro' : 'Mega',
-      primary_audience_geo: 'Nigeria',
-      brand_category: nicheMap[inf.category] || 'Tech',
-      campaign_budget_bracket: '$5K-$20K',
-      campaign_duration_days: 30,
-      campaign_goal: filters.campaignGoal || 'Sales Conversion',
-      target_audience_age: '25-34',
-      payment_model: 'Flat Fee',
-      audience_female_pct: 55,
-      audience_18_24_pct: 35,
-      audience_25_34_pct: 30,
-      audience_35plus_pct: 35,
-      // Keep original frontend fields for display
-      _name: inf.name,
-      _color: inf.color,
-      _rate: inf.rate,
-      _category: inf.category,
-      _platform: inf.platform,
-    };
-  });
-
+  // Generate a synthetic pool of 50 influencers with valid backend schema values
+  const pool = [];
+  const platforms = ["Instagram", "YouTube", "TikTok", "Twitter/X", "Facebook"];
+  const niches = ["Beauty", "Fitness", "Tech", "Fashion", "Food", "Travel", "Gaming", "Lifestyle", "Finance", "Health"];
+  const tiers = ["Nano", "Micro", "Mid-Tier", "Macro", "Mega"];
+  const goals = ["Brand Awareness", "Lead Generation", "Product Launch", "Sales Conversion", "Community Building"];
+  const budgets = ["<$1K", "$1K-$5K", "$5K-$20K", "$20K-$100K", ">$100K"];
+  const paymentModels = ["Flat Fee", "CPE", "CPA", "Revenue Share", "Gifting"];
+  const ages = ["18-24", "25-34", "35-44", "45+", "All Ages"];
+  
+  for (let i = 0; i < 50; i++) {
+    const followers = Math.floor(Math.random() * 900000 + 1000); // 1K to 900K
+    pool.push({
+      influencer_id: `INF${String(i + 1).padStart(4, '0')}`,
+      followers_count: followers,
+      hist_avg_likes_per_post: Math.floor(followers * Math.random() * 0.08),
+      hist_avg_comments_per_post: Math.floor(followers * Math.random() * 0.015),
+      hist_avg_reach_per_post: Math.floor(followers * Math.random() * 0.35),
+      fake_follower_pct: Math.random() * 50,
+      audience_authenticity_score: Math.random() * 80 + 20,
+      brand_alignment_score: Math.random(),
+      audience_age_match_score: Math.random(),
+      audience_geo_match: Math.random() > 0.35 ? 1 : 0,
+      hist_sentiment_score: Math.random() * 0.9 + 0.1,
+      engagement_per_follower: Math.random() * 0.1,
+      interaction_velocity: Math.random() * 0.35 + 0.05,
+      reach_quality_score: Math.random() * 0.8,
+      content_consistency_score: Math.random() * 90 + 10,
+      audience_concentration_score: Math.random() * 0.9 + 0.1,
+      hist_posts_per_week: Math.random() * 13 + 1,
+      hist_avg_shares_per_post: Math.floor(Math.random() * 100),
+      hist_avg_saves_per_post: Math.floor(Math.random() * 200),
+      account_age_years: Math.random() * 9 + 1,
+      is_verified: Math.random() > 0.7 ? 1 : 0,
+      platform: platforms[Math.floor(Math.random() * platforms.length)],
+      niche: niches[Math.floor(Math.random() * niches.length)],
+      influencer_tier: tiers[Math.floor(Math.random() * tiers.length)],
+      primary_audience_geo: "Nigeria",
+      brand_category: niches[Math.floor(Math.random() * niches.length)],
+      campaign_budget_bracket: budgets[Math.floor(Math.random() * budgets.length)],
+      campaign_duration_days: [7, 14, 21, 30, 45, 60][Math.floor(Math.random() * 6)],
+      campaign_goal: filters.campaignGoal || "Sales Conversion",
+      target_audience_age: ages[Math.floor(Math.random() * ages.length)],
+      payment_model: paymentModels[Math.floor(Math.random() * paymentModels.length)],
+      audience_female_pct: Math.random() * 100,
+      audience_18_24_pct: Math.random() * 65,
+      audience_25_34_pct: Math.random() * 60,
+      audience_35plus_pct: Math.random() * 70,
+    });
+  }
+  
   try {
     const result = await apiFetch('/recommend', {
       method: 'POST',
@@ -185,32 +177,26 @@ export const getRecommendedInfluencers = async (filters = {}) => {
       }),
     });
 
-    // Merge backend scores back with original display data
-    const recs = (result.recommendations || []).map((rec, idx) => {
-      const original = influencers.find(
-        (inf) => `INF${String(inf.id).padStart(4, '0')}` === rec.influencer_id
-      );
-      return {
-        id: original?.id || idx + 1,
-        name: original?.name || rec.influencer_id,
-        category: original?.category || rec.niche,
-        platform: original?.platform || rec.platform,
-        followers: rec.followers_count || original?.followers,
-        engagement: parseFloat((rec.pred_er || 0).toFixed(2)),
-        likes: original?.likes || 0,
-        comments: original?.comments || 0,
-        predictedROI: parseFloat(((rec.pred_cvr || 0) * 20).toFixed(0)),
-        successScore: parseFloat(((rec.pred_success || 0) * 100).toFixed(0)),
-        mlScore: parseFloat(((rec.composite_score || 0) * 100).toFixed(0)),
-        color: original?.color || '#6366f1',
-        rate: original?.rate || 0,
-        // Backend ML fields
-        pred_er: rec.pred_er,
-        pred_cvr: rec.pred_cvr,
-        pred_success: rec.pred_success,
-        composite_score: rec.composite_score,
-      };
-    });
+    // Map backend ranked results back to frontend format
+    const recs = (result.recommendations || []).map((rec, idx) => ({
+      id: idx + 1,
+      name: rec.influencer_id,
+      category: rec.niche,
+      platform: rec.platform,
+      followers: rec.followers_count,
+      engagement: parseFloat((rec.pred_er * 100).toFixed(2)),
+      likes: rec.hist_avg_likes_per_post,
+      comments: rec.hist_avg_comments_per_post,
+      predictedROI: parseFloat(((rec.pred_cvr || 0) * 20).toFixed(0)),
+      successScore: parseFloat(((rec.pred_success || 0) * 100).toFixed(0)),
+      mlScore: parseFloat(((rec.composite_score || 0) * 100).toFixed(0)),
+      color: ["#60a5fa", "#4ade80", "#c084fc", "#fb923c", "#f472b6", "#fbbf24"][idx % 6],
+      // Backend ML fields
+      pred_er: rec.pred_er,
+      pred_cvr: rec.pred_cvr,
+      pred_success: rec.pred_success,
+      composite_score: rec.composite_score,
+    }));
 
     // Apply client-side search/category/platform filters
     let filtered = recs;
@@ -222,26 +208,31 @@ export const getRecommendedInfluencers = async (filters = {}) => {
     }
 
     return filtered;
-  } catch (err) {
-    console.warn('Backend /recommend failed, falling back to local data:', err.message);
-    // Fallback: return local data with simple scoring
-    return influencers.map((i) => ({
-      ...i,
-      mlScore: Math.round(
-        i.successScore * 0.4 +
-        i.engagement * 8 +
-        (i.predictedROI / 210) * 20 +
-        Math.min(20, (i.followers / 210000) * 20)
-      ),
-    }));
+  } catch (error) {
+    console.warn('Backend recommendation failed:', error.message);
+    return [];
   }
 };
 
 // ─── Static data endpoints (kept as-is for display-only pages) ───────────────
 
-export const getInfluencers = async () => influencers;
+export const getInfluencers = async () => {
+  try {
+    return await apiFetch('/influencers');
+  } catch (error) {
+    console.warn('Backend influencers failed, models not trained:', error.message);
+    return [];
+  }
+};
 
-export const getCampaigns = async () => campaigns;
+export const getCampaigns = async () => {
+  try {
+    return await apiFetch('/campaigns');
+  } catch (error) {
+    console.warn('Backend campaigns failed, models not trained:', error.message);
+    return [];
+  }
+};
 
 export const createCampaign = async (data) => ({
   success: true,
@@ -254,6 +245,68 @@ export const createCampaign = async (data) => ({
   },
 });
 
-export const getInvitations = async () => campaignInvitations;
+export const getInvitations = async () => {
+  try {
+    return await apiFetch('/invitations');
+  } catch (error) {
+    console.warn('Backend invitations failed:', error.message);
+    return [];
+  }
+};
 
-export const getEarnings = async () => ({ monthly: earningsData, payments: paymentHistory });
+export const getEarnings = async () => {
+  try {
+    return await apiFetch('/earnings');
+  } catch (error) {
+    console.warn('Backend earnings failed:', error.message);
+    return { monthly: [], payments: [] };
+  }
+};
+
+// Additional backend endpoints
+export const getSchema = () => apiFetch('/schema');
+
+export const validateInput = (data) => apiFetch('/validate', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+export const getUncertainty = (records, nBootstrap = 50) => apiFetch('/uncertainty', {
+  method: 'POST',
+  body: JSON.stringify({ records, n_bootstrap: nBootstrap })
+});
+
+export const getShapImportance = () => apiFetch('/shap');
+
+export const getColdStartMetrics = () => apiFetch('/cold-start');
+
+export const getAnalytics = async () => {
+  try {
+    return await apiFetch('/analytics');
+  } catch (error) {
+    console.warn('Backend analytics failed, falling back to local data:', error.message);
+    return {
+      influencers: [],
+      engagementTrends: [],
+      roiPredictions: [],
+      categoryPerformance: [],
+      platformData: []
+    };
+  }
+};
+
+// Test function for backend integration
+export const testBackendIntegration = async () => {
+  try {
+    const health = await checkHealth();
+    console.log('Backend health:', health);
+    
+    const schema = await getSchema();
+    console.log('Backend schema loaded');
+    
+    return { success: true, health, schema };
+  } catch (error) {
+    console.error('Backend test failed:', error);
+    return { success: false, error: error.message };
+  }
+};
