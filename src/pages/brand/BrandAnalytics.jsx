@@ -60,17 +60,11 @@ const BrandAnalytics = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={engagementTrends}>
-                <defs>
-                  <linearGradient id="analyticsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="name" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey={engMetric} stroke="#6366f1" strokeWidth={2} fill="url(#analyticsGrad)" dot={{ r: 3, fill: '#6366f1' }} />
+                <Area type="monotone" dataKey={engMetric} stroke="#F97316" strokeWidth={2} fill="rgba(249, 115, 22, 0.14)" dot={{ r: 3, fill: '#F97316' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -87,17 +81,11 @@ const BrandAnalytics = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={campaignROI} barSize={28}>
-                <defs>
-                  <linearGradient id="roiBarGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="name" stroke="#4b5563" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} unit="%" />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="roi" name="ROI %" fill="url(#roiBarGrad)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="roi" name="ROI %" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -117,19 +105,19 @@ const BrandAnalytics = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={roiPredictions} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="name" stroke="#4b5563" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} unit="%" />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="current" name="Current ROI" fill="#374151" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="predicted" name="Predicted ROI" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={16} />
+                <Bar dataKey="predicted" name="Predicted ROI" fill="#F97316" radius={[4, 4, 0, 0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="roi-cards-grid">
             {roiPredictions.slice(0, 3).map(r => (
               <div className="roi-card" key={r.name}>
-                <div className="roi-value" style={{ color: '#22c55e' }}>+{r.predicted - r.current}%</div>
+                <div className="roi-value" style={{ color: 'var(--gray-900)' }}>+{r.predicted - r.current}%</div>
                 <div className="roi-label">{r.name} growth</div>
               </div>
             ))}
@@ -147,17 +135,11 @@ const BrandAnalytics = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categoryPerformance} barSize={28}>
-                <defs>
-                  <linearGradient id="catBarGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a855f7" />
-                    <stop offset="100%" stopColor="#6366f1" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="category" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgROI" name="Avg ROI %" fill="url(#catBarGrad)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgROI" name="Avg ROI %" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -191,7 +173,7 @@ const BrandAnalytics = () => {
               <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
                 <span style={{ color: 'var(--gray-400)' }}>{p.name}</span>
-                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{p.value}%</span>
+                <span style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{p.value}%</span>
               </div>
             ))}
           </div>
@@ -208,7 +190,7 @@ const BrandAnalytics = () => {
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis type="number" dataKey="engagement" name="Engagement" unit="%" stroke="#4b5563" fontSize={12} tickLine={false} />
                 <YAxis type="number" dataKey="roi" name="ROI" unit="%" stroke="#4b5563" fontSize={12} tickLine={false} />
                 <ZAxis type="number" dataKey="followers" range={[60, 400]} />

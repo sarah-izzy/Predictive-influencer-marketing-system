@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import { DollarSign, TrendingUp, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import Card from '../../components/common/Card';
-import { getEarnings } from '../../services/api';
+import { checkHealth, getEarnings, trainModels } from '../../services/api';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -28,6 +28,10 @@ const Earnings = () => {
   React.useEffect(() => {
     const loadEarnings = async () => {
       try {
+        const health = await checkHealth();
+        if (!health.trained) {
+          await trainModels(800);
+        }
         const data = await getEarnings();
         setEarningsData(data || { monthly: [], payments: [] });
         setLoading(false);
@@ -69,8 +73,8 @@ const Earnings = () => {
           title="Total Earnings"
           value={`$${(totalEarnings / 1000).toFixed(1)}K`}
           icon={DollarSign}
-          iconBg="linear-gradient(135deg, #22c55e, #4ade80)"
-          glowColor="#22c55e"
+          iconBg="#F97316"
+          glowColor="#F97316"
           change="22.3%"
           changeType="positive"
           subtext="This year"
@@ -79,24 +83,24 @@ const Earnings = () => {
           title="Avg per Campaign"
           value={`$${avgPerCampaign.toLocaleString()}`}
           icon={TrendingUp}
-          iconBg="linear-gradient(135deg, #6366f1, #818cf8)"
-          glowColor="#6366f1"
+          iconBg="#F97316"
+          glowColor="#F97316"
           subtext={`${totalCampaigns} campaigns total`}
         />
         <Card
           title="Best Month"
           value={`$${highestMonth.amount.toLocaleString()}`}
           icon={Calendar}
-          iconBg="linear-gradient(135deg, #f97316, #fb923c)"
-          glowColor="#f97316"
+          iconBg="#F97316"
+          glowColor="#F97316"
           subtext={highestMonth.month || 'N/A'}
         />
         <Card
           title="Pending Payments"
           value={`$${pendingAmount.toLocaleString()}`}
           icon={Clock}
-          iconBg="linear-gradient(135deg, #a855f7, #c084fc)"
-          glowColor="#a855f7"
+          iconBg="#F97316"
+          glowColor="#F97316"
           subtext={`${pendingPayments.length} payments awaiting`}
         />
       </div>
@@ -113,17 +117,11 @@ const Earnings = () => {
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData} barSize={32}>
-                <defs>
-                  <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="month" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} tickFormatter={v => `$${v / 1000}K`} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="amount" name="Earnings" fill="url(#earnGrad)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="amount" name="Earnings" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -152,7 +150,7 @@ const Earnings = () => {
             <tbody>
               {paymentHistoryList.map(p => (
                 <tr key={p.id}>
-                  <td style={{ fontWeight: 600, color: '#e2e8f0' }}>{p.campaign}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{p.campaign}</td>
                   <td style={{ color: 'var(--gray-300)' }}>{p.brand}</td>
                   <td style={{ fontWeight: 600, color: 'var(--success-400)' }}>${p.amount.toLocaleString()}</td>
                   <td style={{ color: 'var(--gray-400)' }}>

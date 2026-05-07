@@ -3,9 +3,14 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { Target, TrendingUp, Users, DollarSign, ArrowUpRight, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, Clock, DollarSign, Target, TrendingUp, Users } from 'lucide-react';
 import Card from '../../components/common/Card';
-import { getInfluencers, getCampaigns, getAnalytics } from '../../services/api';
+import { checkHealth, completeCampaign, getAnalytics, getCampaigns, getInfluencers } from '../../services/api';
+
+const EMPTY_ENGAGEMENT_TRENDS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+].map((name) => ({ name, likes: 0, comments: 0, shares: 0 }));
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -31,58 +36,86 @@ const BrandOverview = () => {
   const [trendMetric, setTrendMetric] = useState('likes');
   const [influencersData, setInfluencersData] = useState([]);
   const [campaignsData, setCampaignsData] = useState([]);
-  const [analyticsData, setAnalyticsData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState({
+    engagementTrends: EMPTY_ENGAGEMENT_TRENDS,
+  });
 
   // Load data on component mount
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        const [influencers, campaigns, analytics] = await Promise.all([
+        const campaigns = await getCampaigns();
+        setCampaignsData(campaigns);
+
+        const health = await checkHealth();
+        if (!health.trained) return;
+
+        const [influencers, analytics] = await Promise.all([
           getInfluencers(),
-          getCampaigns(),
           getAnalytics()
         ]);
-        setInfluencersData(influencers);
-        setCampaignsData(campaigns);
-        setAnalyticsData(analytics);
-        setLoading(false);
+        if (influencers.length) {
+          setInfluencersData(influencers);
+        }
+        setAnalyticsData({
+          engagementTrends: analytics.engagementTrends?.length
+            ? analytics.engagementTrends
+            : EMPTY_ENGAGEMENT_TRENDS,
+        });
       } catch (error) {
         console.error('Failed to load data:', error);
-        setLoading(false);
       }
     };
     loadData();
   }, []);
 
-  const engagementTrends = analyticsData?.engagementTrends || [];
-  const activeCampaigns = campaignsData.filter(c => c.status === 'active').length;
+  const engagementTrends = useMemo(() => {
+    const trends = analyticsData?.engagementTrends || [];
+    if (!trends.length) return [];
+    const baseline = trends[0];
+    return trends.map((entry) => ({
+      ...entry,
+      likes: baseline.likes,
+      comments: baseline.comments,
+      shares: baseline.shares,
+    }));
+  }, [analyticsData]);
+  const activeCampaigns = campaignsData.filter(c => ['active', 'launched'].includes(c.status)).length;
   const completedCampaigns = campaignsData.filter(c => c.status === 'completed').length;
-  const totalBudget = campaignsData.reduce((s, c) => s + c.budget, 0);
-  const totalSpent = campaignsData.reduce((s, c) => s + c.spent, 0);
-  const roiCampaigns = campaignsData.filter(c => c.metrics?.roi > 0);
+  const totalBudget = campaignsData.reduce((s, c) => s + Number(c.budget || 0), 0);
+  const totalSpent = campaignsData.reduce((s, c) => s + Number(c.spent || 0), 0);
+  const roiCampaigns = campaignsData.filter(c => Number(c.metrics?.roi || 0) > 0);
   const avgROI = roiCampaigns.length
-    ? Math.round(roiCampaigns.reduce((s, c) => s + c.metrics.roi, 0) / roiCampaigns.length)
+    ? Math.round(roiCampaigns.reduce((s, c) => s + Number(c.metrics?.roi || 0), 0) / roiCampaigns.length)
     : 0;
-
   const top5 = useMemo(
     () => [...influencersData].sort((a, b) => b.successScore - a.successScore).slice(0, 5),
     [influencersData]
   );
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading brand dashboard...</p>
-      </div>
-    );
-  }
+  const handleCompleteCampaign = async (campaign) => {
+    const predicted = campaign.prediction_result || {};
+    const engagement = Number(campaign.metrics?.engagement || predicted.pred_engagement_rate || 4.5);
+    const revenue = Number(predicted.pred_revenue_usd || campaign.budget * 1.6 || 5000);
+    const roi = campaign.budget ? ((revenue - campaign.budget) / campaign.budget) * 100 : Number(campaign.metrics?.roi || 0);
+    try {
+      const result = await completeCampaign(campaign.id, {
+        actual_engagement_rate: Number(engagement.toFixed(2)),
+        actual_conversion_rate: Number((predicted.pred_conversion_rate || 2.4).toFixed(2)),
+        actual_revenue_usd: Number(revenue.toFixed(2)),
+        actual_roi: Number(roi.toFixed(2)),
+        notes: 'Stored from dashboard evaluation workflow.',
+      });
+      setCampaignsData((prev) => prev.map((item) => item.id === campaign.id ? result.campaign : item));
+    } catch (error) {
+      alert(error.message || 'Unable to complete campaign');
+    }
+  };
 
   const campaignStatusData = [
-    { name: 'Active', value: activeCampaigns, color: '#22c55e' },
-    { name: 'Completed', value: completedCampaigns, color: '#6366f1' },
-    { name: 'Draft', value: campaignsData.filter(c => c.status === 'draft').length, color: '#4b5563' },
+    { name: 'Launched', value: activeCampaigns, color: '#F97316' },
+    { name: 'Completed', value: completedCampaigns, color: '#FDBA74' },
+    { name: 'Draft/Selected', value: campaignsData.filter(c => ['draft', 'recommended', 'selected'].includes(c.status)).length, color: '#9A3412' },
   ];
 
   return (
@@ -96,38 +129,32 @@ const BrandOverview = () => {
           title="Active Campaigns"
           value={activeCampaigns}
           icon={Target}
-          iconBg="linear-gradient(135deg, var(--success-500), var(--success-400))"
-          glowColor="#22c55e"
-          change="2 new"
-          changeType="positive"
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
           subtext="Currently running"
         />
         <Card
           title="Avg. ROI"
           value={`${avgROI}%`}
           icon={TrendingUp}
-          iconBg="linear-gradient(135deg, var(--primary-600), var(--primary-400))"
-          glowColor="#6366f1"
-          change="15.3%"
-          changeType="positive"
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
           subtext="Across all campaigns"
         />
         <Card
           title="Total Influencers"
           value={influencersData.length}
           icon={Users}
-          iconBg="linear-gradient(135deg, var(--accent-500), var(--accent-400))"
-          glowColor="#a855f7"
-          change="8.2%"
-          changeType="positive"
+          iconBg="var(--accent-500)"
+          glowColor="#F97316"
           subtext="In network"
         />
         <Card
           title="Budget Spent"
           value={`$${(totalSpent / 1000).toFixed(1)}K`}
           icon={DollarSign}
-          iconBg="linear-gradient(135deg, var(--warning-500), var(--warning-400))"
-          glowColor="#f97316"
+          iconBg="var(--warning-500)"
+          glowColor="#F97316"
           subtext={`of $${(totalBudget / 1000).toFixed(1)}K total`}
         />
       </div>
@@ -156,13 +183,7 @@ const BrandOverview = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={engagementTrends}>
-                <defs>
-                  <linearGradient id="engGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary-600)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="var(--primary-600)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="name" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
@@ -171,7 +192,7 @@ const BrandOverview = () => {
                   dataKey={trendMetric}
                   stroke="var(--primary-600)"
                   strokeWidth={2}
-                  fill="url(#engGrad)"
+                  fill="rgba(249, 115, 22, 0.14)"
                   dot={{ r: 3, fill: 'var(--primary-600)', strokeWidth: 0 }}
                   activeDot={{ r: 5, fill: 'var(--primary-400)', strokeWidth: 2, stroke: 'var(--primary-600)' }}
                 />
@@ -214,20 +235,27 @@ const BrandOverview = () => {
               <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, display: 'inline-block' }} />
                 <span style={{ color: 'var(--gray-400)' }}>{s.name}</span>
-                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{s.value}</span>
+                <span style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{s.value}</span>
               </div>
             ))}
           </div>
 
           {/* Active campaigns summary */}
           <div style={{ marginTop: 16 }}>
-            {campaignsData.filter(c => c.status === 'active').map(c => (
+            {campaignsData.filter(c => ['active', 'launched', 'selected', 'recommended'].includes(c.status)).slice(0, 4).map(c => (
               <div key={c.id} className="campaign-mini-row">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Clock size={14} style={{ color: 'var(--success-400)' }} />
-                  <span style={{ fontWeight: 500, color: '#e2e8f0', fontSize: 13 }}>{c.name}</span>
+                  <Clock size={14} style={{ color: 'var(--primary-700)' }} />
+                  <span style={{ fontWeight: 500, color: 'var(--gray-900)', fontSize: 13 }}>{c.name}</span>
                 </div>
-                <span className="campaign-mini-badge">{c.metrics.roi}% ROI</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="campaign-mini-badge">{c.status}</span>
+                  {c.status === 'launched' && (
+                    <button className="btn-edit" style={{ padding: '5px 8px' }} onClick={() => handleCompleteCampaign(c)}>
+                      Evaluate
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -279,7 +307,7 @@ const BrandOverview = () => {
                       {inf.category}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 600, color: '#e2e8f0' }}>
+                  <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
                     {(inf.followers / 1000).toFixed(0)}K
                   </td>
                   <td>
@@ -289,17 +317,17 @@ const BrandOverview = () => {
                           className="engagement-bar-fill"
                           style={{
                             width: `${(inf.engagement / 10) * 100}%`,
-                            background: 'linear-gradient(90deg, var(--primary-600), var(--accent-500))',
+                            background: 'var(--primary-600)',
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{inf.engagement}%</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>{inf.engagement}%</span>
                     </div>
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <ArrowUpRight size={14} style={{ color: 'var(--success-400)' }} />
-                      <span style={{ fontWeight: 600, color: 'var(--success-400)' }}>{inf.predictedROI}%</span>
+                      <ArrowUpRight size={14} style={{ color: 'var(--primary-700)' }} />
+                      <span style={{ fontWeight: 600, color: 'var(--primary-700)' }}>{inf.predictedROI}%</span>
                     </div>
                   </td>
                   <td>

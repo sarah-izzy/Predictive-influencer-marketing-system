@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  RadialBarChart, RadialBar, Legend, PieChart, Pie, Cell,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import { Users, TrendingUp, DollarSign, Target, ArrowUpRight, Eye } from 'lucide-react';
 import Card from '../components/common/Card';
 import { getAnalytics } from '../services/api';
+import { influencers, platformData } from '../data/dummyData';
 
 /* Custom chart tooltip */
 const CustomTooltip = ({ active, payload, label }) => {
@@ -56,22 +57,14 @@ const Dashboard = () => {
     loadAnalytics();
   }, []);
 
-}
-
   // Aggregate stats with loading check
   const totalFollowers = analyticsData?.influencers?.reduce((sum, i) => sum + i.followers, 0) || 0;
   const avgEngagement = analyticsData?.influencers ? 
     (analyticsData.influencers.reduce((sum, i) => sum + i.engagement, 0) / analyticsData.influencers.length).toFixed(1) : '0';
-  const avgROI = analyticsData?.influencers ? 
-    Math.round(analyticsData.influencers.reduce((sum, i) => sum + i.predictedROI, 0) / analyticsData.influencers.length) : 0;
+  const avgROI = analyticsData?.roiPredictions?.length
+    ? Math.round(analyticsData.roiPredictions.reduce((sum, i) => sum + i.predicted, 0) / analyticsData.roiPredictions.length)
+    : 0;
   const totalCampaigns = 24;
-
-  /* Radial data for ROI */
-  const roiRadialData = analyticsData?.roiPredictions?.map((r, i) => ({
-    name: r.name,
-    predicted: r.predicted,
-    fill: analyticsData?.influencers?.[i]?.color || '#6366f1',
-  })) || [];
 
   if (loading) {
     return (
@@ -93,8 +86,8 @@ const Dashboard = () => {
           title="Total Followers"
           value={`${(totalFollowers / 1000).toFixed(0)}K`}
           icon={Users}
-          iconBg="linear-gradient(135deg, #6366f1, #818cf8)"
-          glowColor="#6366f1"
+          iconBg="#F97316"
+          glowColor="#F97316"
           change="12.5%"
           changeType="positive"
           subtext="Across tracked influencers"
@@ -103,8 +96,8 @@ const Dashboard = () => {
           title="Avg. Engagement"
           value={`${avgEngagement}%`}
           icon={TrendingUp}
-          iconBg="linear-gradient(135deg, #22c55e, #4ade80)"
-          glowColor="#22c55e"
+          iconBg="#F97316"
+          glowColor="#F97316"
           change="8.2%"
           changeType="positive"
           subtext="Last 30 days"
@@ -113,8 +106,8 @@ const Dashboard = () => {
           title="Predicted ROI"
           value={`${avgROI}%`}
           icon={DollarSign}
-          iconBg="linear-gradient(135deg, #a855f7, #c084fc)"
-          glowColor="#a855f7"
+          iconBg="#F97316"
+          glowColor="#F97316"
           change="15.3%"
           changeType="positive"
           subtext="ML model forecast"
@@ -123,8 +116,8 @@ const Dashboard = () => {
           title="Active Campaigns"
           value={totalCampaigns}
           icon={Target}
-          iconBg="linear-gradient(135deg, #f97316, #fb923c)"
-          glowColor="#f97316"
+          iconBg="#F97316"
+          glowColor="#F97316"
           change="3.1%"
           changeType="negative"
           subtext="Currently running"
@@ -156,24 +149,18 @@ const Dashboard = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={analyticsData?.engagementTrends || []}>
-                <defs>
-                  <linearGradient id="engagementGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="name" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone"
                   dataKey={engagementMetric}
-                  stroke="#6366f1"
+                  stroke="#F97316"
                   strokeWidth={2}
-                  fill="url(#engagementGrad)"
-                  dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: '#818cf8', strokeWidth: 2, stroke: '#6366f1' }}
+                  fill="rgba(249, 115, 22, 0.14)"
+                  dot={{ r: 3, fill: '#F97316', strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: '#F97316', strokeWidth: 2, stroke: '#F97316' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -191,17 +178,11 @@ const Dashboard = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analyticsData?.categoryPerformance || []} barSize={28}>
-                <defs>
-                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a855f7" />
-                    <stop offset="100%" stopColor="#6366f1" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="category" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgROI" name="Avg ROI %" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgROI" name="Avg ROI %" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -230,7 +211,7 @@ const Dashboard = () => {
           <div className="roi-grid" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
             {analyticsData?.roiPredictions?.map((r) => (
               <div className="roi-card" key={r.name}>
-                <div className="roi-value" style={{ color: '#22c55e' }}>+{r.predicted - r.current}%</div>
+                <div className="roi-value" style={{ color: 'var(--gray-900)' }}>+{r.predicted - r.current}%</div>
                 <div className="roi-label">{r.name} growth</div>
               </div>
             ))}
@@ -283,7 +264,7 @@ const Dashboard = () => {
                   display: 'inline-block',
                 }} />
                 <span style={{ color: 'var(--gray-400)' }}>{p.name}</span>
-                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{p.value}%</span>
+                <span style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{p.value}%</span>
               </div>
             ))}
           </div>
@@ -342,7 +323,7 @@ const Dashboard = () => {
                       {inf.category}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 600, color: '#e2e8f0' }}>
+                  <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
                     {(inf.followers / 1000).toFixed(0)}K
                   </td>
                   <td>
@@ -352,11 +333,11 @@ const Dashboard = () => {
                           className="engagement-bar-fill"
                           style={{
                             width: `${(inf.engagement / 10) * 100}%`,
-                            background: `linear-gradient(90deg, var(--primary-500), var(--accent-500))`,
+                            background: `var(--primary-600)`,
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>
                         {inf.engagement}%
                       </span>
                     </div>

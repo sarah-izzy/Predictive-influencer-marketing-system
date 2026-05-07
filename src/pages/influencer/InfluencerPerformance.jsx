@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { influencerPerformance, contentPerformance } from '../../data/dummyData';
+import { getInfluencerProfile } from '../../services/api';
+import { buildContentPerformanceFromProfile, buildInfluencerPerformanceFromProfile } from '../../utils/influencerProfileMetrics';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -21,30 +22,52 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const InfluencerPerformance = () => {
   const [metric, setMetric] = useState('likes');
+  const [profile, setProfile] = useState(null);
+  const influencerPerformance = useMemo(
+    () => buildInfluencerPerformanceFromProfile(profile || {}),
+    [profile]
+  );
+  const contentPerformance = useMemo(
+    () => buildContentPerformanceFromProfile(profile || {}),
+    [profile]
+  );
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const data = await getInfluencerProfile();
+      setProfile(data || null);
+    };
+    loadProfile();
+  }, []);
 
   const latestPerf = influencerPerformance[influencerPerformance.length - 1];
   const prevPerf = influencerPerformance[influencerPerformance.length - 2];
+  const pctChange = (current, previous) => {
+    if (!previous) return '0.0%';
+    const value = ((current - previous) / previous) * 100;
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+  };
 
   const growthMetrics = [
     {
       label: 'Follower Growth',
-      value: `+${((latestPerf.followers - prevPerf.followers) / prevPerf.followers * 100).toFixed(1)}%`,
-      color: '#f97316',
+      value: pctChange(latestPerf.followers, prevPerf.followers),
+      color: 'var(--gray-900)',
     },
     {
       label: 'Engagement Change',
-      value: `${latestPerf.engagement > prevPerf.engagement ? '+' : ''}${((latestPerf.engagement - prevPerf.engagement) / prevPerf.engagement * 100).toFixed(1)}%`,
-      color: '#22c55e',
+      value: pctChange(latestPerf.engagement, prevPerf.engagement),
+      color: 'var(--gray-900)',
     },
     {
       label: 'Reach Growth',
-      value: `+${((latestPerf.reach - prevPerf.reach) / prevPerf.reach * 100).toFixed(1)}%`,
-      color: '#6366f1',
+      value: pctChange(latestPerf.reach, prevPerf.reach),
+      color: 'var(--gray-900)',
     },
     {
       label: 'Avg Likes Change',
-      value: `+${((latestPerf.likes - prevPerf.likes) / prevPerf.likes * 100).toFixed(1)}%`,
-      color: '#a855f7',
+      value: pctChange(latestPerf.likes, prevPerf.likes),
+      color: 'var(--gray-900)',
     },
   ];
 
@@ -85,17 +108,11 @@ const InfluencerPerformance = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={influencerPerformance}>
-                <defs>
-                  <linearGradient id="perfGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="month" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey={metric} name={metric.charAt(0).toUpperCase() + metric.slice(1)} stroke="#f97316" strokeWidth={2} fill="url(#perfGrad)" dot={{ r: 3, fill: '#f97316' }} />
+                <Area type="monotone" dataKey={metric} name={metric.charAt(0).toUpperCase() + metric.slice(1)} stroke="#F97316" strokeWidth={2} fill="rgba(249, 115, 22, 0.14)" dot={{ r: 3, fill: '#F97316' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -112,17 +129,11 @@ const InfluencerPerformance = () => {
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={contentPerformance} barSize={28}>
-                <defs>
-                  <linearGradient id="contentGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="100%" stopColor="#fb923c" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="type" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgLikes" name="Avg Likes" fill="url(#contentGrad)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgLikes" name="Avg Likes" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -151,10 +162,10 @@ const InfluencerPerformance = () => {
             <tbody>
               {contentPerformance.map(c => (
                 <tr key={c.type}>
-                  <td style={{ fontWeight: 600, color: '#e2e8f0' }}>{c.type}</td>
-                  <td style={{ color: 'var(--gray-300)' }}>{c.posts}</td>
-                  <td style={{ color: 'var(--gray-300)' }}>{c.avgLikes.toLocaleString()}</td>
-                  <td style={{ color: 'var(--gray-300)' }}>{c.avgComments.toLocaleString()}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{c.type}</td>
+                  <td style={{ color: 'var(--gray-700)' }}>{c.posts}</td>
+                  <td style={{ color: 'var(--gray-700)' }}>{c.avgLikes.toLocaleString()}</td>
+                  <td style={{ color: 'var(--gray-700)' }}>{c.avgComments.toLocaleString()}</td>
                   <td style={{ fontWeight: 600, color: 'var(--success-400)' }}>{(c.avgReach / 1000).toFixed(0)}K</td>
                 </tr>
               ))}

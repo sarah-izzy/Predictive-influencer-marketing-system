@@ -8,19 +8,19 @@ const Home = () => {
       icon: BarChart3,
       title: 'Real-Time Analytics',
       desc: 'Monitor engagement metrics, follower growth, and campaign performance with interactive visualizations.',
-      bg: 'linear-gradient(135deg, #6366f1, #818cf8)',
+      bg: '#F97316',
     },
     {
       icon: BrainCircuit,
       title: 'ML-Powered Predictions',
       desc: 'Our trained model forecasts campaign success probability and ROI before you invest a dollar.',
-      bg: 'linear-gradient(135deg, #a855f7, #c084fc)',
+      bg: '#F97316',
     },
     {
       icon: TrendingUp,
       title: 'ROI Optimization',
       desc: 'Identify high-performance influencers and allocate budgets where they generate maximum returns.',
-      bg: 'linear-gradient(135deg, #22c55e, #4ade80)',
+      bg: '#F97316',
     },
   ];
 
@@ -40,12 +40,12 @@ const Home = () => {
             Leverage machine learning to analyze influencer metrics, forecast engagement, and optimize your marketing ROI with evidence-based decisions.
           </p>
           <div className="hero-buttons">
-            <Link to="/prediction" className="btn-hero-primary">
+            <Link to="/login" className="btn-hero-primary">
               <BrainCircuit size={18} />
               Start Prediction
               <ArrowRight size={16} />
             </Link>
-            <Link to="/dashboard" className="btn-hero-secondary">
+            <Link to="/login" className="btn-hero-secondary">
               <BarChart3 size={18} />
               View Dashboard
             </Link>

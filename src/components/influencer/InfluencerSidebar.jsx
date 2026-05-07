@@ -57,7 +57,7 @@ const InfluencerSidebar = ({ isOpen, onClose }) => {
         </div>
         <div className="sidebar-info-box sidebar-tier-box">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Award size={18} style={{ color: '#fb923c' }} />
+            <Award size={18} style={{ color: 'var(--gray-900)' }} />
             <div className="sidebar-info-title">{user?.tier || 'Rising Star'}</div>
           </div>
           <div className="sidebar-info-sub">Keep growing your engagement to reach the next tier!</div>
@@ -69,7 +69,7 @@ const InfluencerSidebar = ({ isOpen, onClose }) => {
 
         {user && (
           <div className="sidebar-user-card">
-            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-600), var(--accent-500))' }}>
+            <div className="sidebar-user-avatar" style={{ background: 'var(--primary-600)' }}>
               {user.avatar}
             </div>
             <div className="sidebar-user-info">
