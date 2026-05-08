@@ -60,6 +60,8 @@ class RecommendRequest(BaseModel):
     max_fake: float = Field(20.0)
     min_followers: int = Field(5000)
     max_followers: Optional[int] = Field(None)
+    target_platform: Optional[str] = Field(None)
+    target_niche: Optional[str] = Field(None)
     require_geo_match: bool = Field(False)
 
 

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Award, BarChart3, CheckCircle2, Target, TrendingUp, Users } from 'lucide-react';
+import { AlertTriangle, Award, BarChart3, CheckCircle2, Clock, Send, Target, TrendingUp, Users, XCircle } from 'lucide-react';
 import {
   getCampaignRecommendations,
   getCampaigns,
+  selectCampaignInfluencers,
 } from '../../services/api';
+import SweetAlert from '../../components/common/SweetAlert';
 
 const markerLabels = {
   engagementRate: 'engagement',
@@ -24,6 +26,13 @@ const topReasons = (markers = {}) =>
     .slice(0, 3)
     .map(([key, value]) => `${markerLabels[key] || key}: ${Math.round(value)}%`);
 
+const invitationStatusMeta = {
+  accepted: { label: 'Accepted invitation', className: 'rec-invite-status-accepted', icon: CheckCircle2 },
+  pending: { label: 'Invitation pending', className: 'rec-invite-status-pending', icon: Clock },
+  declined: { label: 'Declined invitation', className: 'rec-invite-status-declined', icon: XCircle },
+  not_sent: { label: 'Not invited yet', className: 'rec-invite-status-none', icon: Send },
+};
+
 const Recommendations = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -31,6 +40,9 @@ const Recommendations = () => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rankingLoading, setRankingLoading] = useState(false);
+  const [sendingInvites, setSendingInvites] = useState(false);
+  const [selectedInfluencerIds, setSelectedInfluencerIds] = useState([]);
+  const [alert, setAlert] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -71,7 +83,7 @@ const Recommendations = () => {
       setError('');
       try {
         const result = await getCampaignRecommendations(selectedCampaign.id);
-        setRecommendations((result.recommendations || []).map((rec, idx) => ({
+        const ranked = (result.recommendations || []).map((rec, idx) => ({
           ...rec,
           rank: idx + 1,
           name: rec.influencer_id,
@@ -82,8 +94,14 @@ const Recommendations = () => {
           predictedROI: Number(rec.pred_roi || 0) * 100,
           successScore: Number(rec.pred_success || 0) * 100,
           mlScore: Number(rec.composite_score || 0) * 100,
+          invitationStatus: rec.invitation_status || rec.invitation?.status || 'not_sent',
+          invitation: rec.invitation || null,
           reason: rec.grading?.explanation || 'Picked for its campaign fit and predicted performance.',
-        })));
+        }));
+        setRecommendations(ranked);
+        setSelectedInfluencerIds((selectedCampaign.selectedInfluencers || [])
+          .map((item) => item.influencer_user_id || item.id || item.influencer_id || item.name)
+          .filter(Boolean));
         setSummary(result);
       } catch (err) {
         setRecommendations([]);
@@ -96,8 +114,65 @@ const Recommendations = () => {
     rank();
   }, [selectedCampaign]);
 
+  const toggleInfluencer = (rec) => {
+    const id = rec.influencer_user_id || rec.username || rec.name;
+    setSelectedInfluencerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const selectedRecommendations = useMemo(
+    () => recommendations.filter((rec) => selectedInfluencerIds.includes(rec.influencer_user_id || rec.username || rec.name)),
+    [recommendations, selectedInfluencerIds]
+  );
+
+  const handleSendInvitations = async () => {
+    if (!selectedCampaign || selectedRecommendations.length === 0) return;
+    setSendingInvites(true);
+    setError('');
+    setAlert(null);
+    try {
+      const invitePayload = selectedRecommendations.map((rec) => ({
+        influencer_user_id: rec.influencer_user_id,
+        id: rec.influencer_user_id,
+        username: rec.username,
+        influencer_id: rec.name,
+        name: rec.name,
+        platform: rec.platform,
+        niche: rec.category,
+        followers_count: rec.followers,
+        composite_score: rec.composite_score,
+        pred_success: rec.pred_success,
+        pred_roi: rec.pred_roi,
+      }));
+      const result = await selectCampaignInfluencers(
+        selectedCampaign.id,
+        invitePayload,
+        `Invitation for ${selectedCampaign.name}`
+      );
+      setCampaigns((prev) => prev.map((campaign) => campaign.id === selectedCampaign.id ? result.campaign : campaign));
+      setAlert({
+        type: 'success',
+        title: 'Invitations sent',
+        message: `${invitePayload.length} influencer${invitePayload.length === 1 ? '' : 's'} received the campaign invitation.`,
+      });
+    } catch (err) {
+      setError(err.message || 'Unable to send invitations.');
+    } finally {
+      setSendingInvites(false);
+    }
+  };
+
   return (
     <div>
+      <SweetAlert
+        open={Boolean(alert)}
+        type={alert?.type}
+        title={alert?.title}
+        message={alert?.message}
+        onClose={() => setAlert(null)}
+      />
+
       <h2 className="page-title">Influencer Recommendations</h2>
       <p className="page-subtitle">Select a campaign to see ranked influencers and why each one was picked</p>
 
@@ -109,7 +184,6 @@ const Recommendations = () => {
           </div>
         </div>
       )}
-
       <div className="glass-card rec-campaign-picker">
         <div className="chart-card-header" style={{ marginBottom: 0 }}>
           <div>
@@ -164,7 +238,7 @@ const Recommendations = () => {
                 </div>
                 <div>
                   <span>Budget</span>
-                  <strong>${Number(selectedCampaign.budget || selectedCampaign.payload?.budget || 0).toLocaleString()}</strong>
+                  <strong>₦{Number(selectedCampaign.budget || selectedCampaign.payload?.budget || 0).toLocaleString()}</strong>
                 </div>
                 <div>
                   <span>Status</span>
@@ -195,6 +269,9 @@ const Recommendations = () => {
               <span className="score-badge score-medium">
                 {Number(summary.follower_range?.min || 0).toLocaleString()} - {summary.follower_range?.max ? Number(summary.follower_range.max).toLocaleString() : 'No max'} followers
               </span>
+              {summary.match_filters?.platform && <span className="score-badge score-medium">{summary.match_filters.platform}</span>}
+              {summary.match_filters?.niche && <span className="score-badge score-medium">{summary.match_filters.niche}</span>}
+              {summary.applied_match_level && <span className="score-badge score-medium">Matched by {summary.applied_match_level}</span>}
             </div>
           )}
 
@@ -214,9 +291,28 @@ const Recommendations = () => {
               <p>No influencers passed the recommendation filters.</p>
             </div>
           ) : (
+            <>
+            <div className="rec-invite-bar">
+              <div>
+                <strong>{selectedRecommendations.length}</strong> selected for invitation
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={sendingInvites || selectedRecommendations.length === 0}
+                onClick={handleSendInvitations}
+              >
+                <Send size={16} />
+                {sendingInvites ? 'Sending...' : 'Send Invitations'}
+              </button>
+            </div>
             <div className="rec-ranked-list">
               {recommendations.map((rec) => {
                 const reasons = topReasons(rec.grading?.markers);
+                const recId = rec.influencer_user_id || rec.username || rec.name;
+                const checked = selectedInfluencerIds.includes(recId);
+                const statusMeta = invitationStatusMeta[rec.invitationStatus] || invitationStatusMeta.not_sent;
+                const StatusIcon = statusMeta.icon;
                 return (
                   <article key={`${rec.rank}-${rec.name}`} className={`rec-rank-card ${rec.rank === 1 ? 'rec-rank-card-featured' : ''}`}>
                     <div className="rec-rank-head">
@@ -227,6 +323,10 @@ const Recommendations = () => {
                           <div className="rec-rank-name">
                             {rec.name}
                             {rec.rank === 1 && <span className="rec-top-tag"><Award size={12} /> Best match</span>}
+                            <span className={`rec-invite-status ${statusMeta.className}`}>
+                              <StatusIcon size={12} />
+                              {statusMeta.label}
+                            </span>
                           </div>
                           <div className="rec-rank-meta">
                             {rec.platform} / {rec.category} / {Number(rec.followers || 0).toLocaleString()} followers
@@ -240,6 +340,15 @@ const Recommendations = () => {
                         <span>match score</span>
                       </div>
                     </div>
+                    <label className="rec-select-influencer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={rec.invitationStatus === 'accepted'}
+                        onChange={() => toggleInfluencer(rec)}
+                      />
+                      {rec.invitationStatus === 'accepted' ? 'Accepted by influencer' : 'Select for invitation'}
+                    </label>
 
                     <div className="rec-metric-grid">
                       <div>
@@ -275,6 +384,7 @@ const Recommendations = () => {
                 );
               })}
             </div>
+            </>
           )}
       </div>
     </div>

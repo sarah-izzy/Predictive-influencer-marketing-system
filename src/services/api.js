@@ -95,8 +95,13 @@ export const predictCampaign = async (formData) => {
   else if (rawBudget < 100000) budgetBracket = '$20K-$100K';
   else budgetBracket = '>$100K';
 
-  // Derive influencer tier from follower count
-  const followers = toNumber(formData.followers, 10000);
+  // Derive a representative influencer profile from the campaign recommendation range.
+  const minFollowers = toNumber(formData.targetMinFollowers, 1000);
+  const maxFollowers = toNumber(formData.targetMaxFollowers, Math.max(minFollowers, 50000));
+  const followers = toNumber(
+    formData.followers,
+    Math.max(1000, Math.round((minFollowers + Math.max(maxFollowers, minFollowers)) / 2))
+  );
   let tier = 'Micro';
   if (followers < 10000) tier = 'Nano';
   else if (followers < 100000) tier = 'Micro';
@@ -110,7 +115,7 @@ export const predictCampaign = async (formData) => {
     Gaming: 'Gaming', Health: 'Health', Food: 'Food',
     Beauty: 'Beauty', Fitness: 'Fitness', Travel: 'Travel', Finance: 'Finance',
   };
-  const niche = nicheMap[formData.niche] || nicheMap[formData.category] || 'Lifestyle';
+  const niche = nicheMap[formData.niche] || nicheMap[formData.brandCategory] || nicheMap[formData.category] || 'Lifestyle';
   const brandCategory = nicheMap[formData.brandCategory] || nicheMap[formData.category] || niche;
 
   // Map platform (frontend values match backend values)
@@ -131,8 +136,8 @@ export const predictCampaign = async (formData) => {
   };
   const campaignGoal = goalMap[formData.campaignGoal] || goalMap[formData.campaign_goal] || 'Sales Conversion';
 
-  const likes = toNumber(formData.likes);
-  const comments = toNumber(formData.comments);
+  const likes = toNumber(formData.likes, Math.round(followers * 0.045));
+  const comments = toNumber(formData.comments, Math.round(followers * 0.006));
   const startDate = formData.startDate ? new Date(formData.startDate) : null;
   const endDate = formData.endDate ? new Date(formData.endDate) : null;
   const dateDuration = startDate && endDate && endDate >= startDate
@@ -145,17 +150,17 @@ export const predictCampaign = async (formData) => {
     hist_avg_likes_per_post: likes,
     hist_avg_comments_per_post: comments,
     fake_follower_pct: toNumber(formData.fakeFollowerPct, 8.0),
-    audience_authenticity_score: toNumber(formData.authenticityScore, 80.0),
-    brand_alignment_score: toNumber(formData.brandAlignment, 0.7),
-    audience_age_match_score: toNumber(formData.ageMatchScore, 0.5),
+    audience_authenticity_score: toNumber(formData.authenticityScore, 82.0),
+    brand_alignment_score: toNumber(formData.brandAlignment, 0.85),
+    audience_age_match_score: toNumber(formData.ageMatchScore, 0.72),
     audience_geo_match: formData.geoMatch !== undefined ? toInt(formData.geoMatch, 1) : 1,
-    hist_sentiment_score: toNumber(formData.sentimentScore, 0.65),
-    hist_avg_shares_per_post: toNumber(formData.shares),
-    hist_avg_saves_per_post: toNumber(formData.saves),
+    hist_sentiment_score: toNumber(formData.sentimentScore, 0.70),
+    hist_avg_shares_per_post: toNumber(formData.shares, Math.round(likes * 0.08)),
+    hist_avg_saves_per_post: toNumber(formData.saves, Math.round(likes * 0.06)),
     audience_female_pct: toNumber(formData.femalePct, 50),
     account_age_years: toNumber(formData.accountAgeYears, 3),
     is_verified: toInt(formData.isVerified, 0),
-    hist_avg_reach_per_post: toNumber(formData.reach, followers * 0.4),
+    hist_avg_reach_per_post: toNumber(formData.reach, Math.round(followers * 0.4)),
     hist_posts_per_week: toNumber(formData.postsPerWeek, 4),
     audience_18_24_pct: toNumber(formData.audience18_24, 35),
     audience_25_34_pct: toNumber(formData.audience25_34, 30),
@@ -440,6 +445,33 @@ export const getCampaigns = async () => {
   } catch (error) {
     console.warn('Backend campaigns failed:', error.message);
     return [];
+  }
+};
+
+export const getBrandDashboard = async () => {
+  try {
+    return await apiFetch('/dashboard/brand');
+  } catch (error) {
+    console.warn('Backend brand dashboard failed:', error.message);
+    return {
+      stats: {},
+      campaignStatus: [],
+      campaigns: [],
+      topRecommended: [],
+    };
+  }
+};
+
+export const getInfluencerDashboard = async () => {
+  try {
+    return await apiFetch('/dashboard/influencer');
+  } catch (error) {
+    console.warn('Backend influencer dashboard failed:', error.message);
+    return {
+      stats: {},
+      invitations: [],
+      pendingInvitations: [],
+    };
   }
 };
 

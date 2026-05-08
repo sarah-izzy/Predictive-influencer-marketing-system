@@ -58,10 +58,10 @@ const InfluencerManagement = () => {
     );
   }, [influencers, search]);
 
-  const resetForm = () => {
+  const resetForm = (clearMessage = true) => {
     setForm(emptyForm);
     setEditingId(null);
-    setMessage('');
+    if (clearMessage) setMessage('');
   };
 
   const startEdit = (influencer) => {
@@ -118,10 +118,15 @@ const InfluencerManagement = () => {
         await updateRegisteredInfluencer(editingId, payloadFromForm());
         setMessage('Influencer updated.');
       } else {
+        const loginDetails = {
+          email: form.email,
+          username: form.username,
+          password: form.password,
+        };
         await createRegisteredInfluencer(payloadFromForm());
-        setMessage('Influencer created.');
+        setMessage(`Influencer created. Login with ${loginDetails.email} / ${loginDetails.username} / ${loginDetails.password}`);
       }
-      resetForm();
+      resetForm(false);
       await loadInfluencers();
     } catch (error) {
       setMessage(error.message || 'Unable to save influencer.');

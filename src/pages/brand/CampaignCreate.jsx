@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BrainCircuit, Zap, CheckCircle2, AlertTriangle, TrendingUp, DollarSign, BarChart3, Activity } from 'lucide-react';
+import { BrainCircuit, Zap, CheckCircle2, AlertTriangle, TrendingUp, Banknote, BarChart3, Activity } from 'lucide-react';
 import { createCampaign, predictCampaign, checkHealth, trainModels } from '../../services/api';
 
 const CampaignCreate = () => {
@@ -19,29 +19,6 @@ const CampaignCreate = () => {
     campaignDuration: '30',
     targetMinFollowers: '1000',
     targetMaxFollowers: '5000000',
-    niche: 'Beauty',
-    followers: '',
-    likes: '',
-    comments: '',
-    shares: '',
-    saves: '',
-    reach: '',
-    accountAgeYears: '3',
-    isVerified: '0',
-    postsPerWeek: '4',
-    fakeFollowerPct: '8',
-    authenticityScore: '80',
-    brandAlignment: '0.7',
-    ageMatchScore: '0.5',
-    geoMatch: '1',
-    sentimentScore: '0.65',
-    femalePct: '50',
-    audience18_24: '35',
-    audience25_34: '30',
-    audience35plus: '35',
-    audienceConcentrationScore: '0.65',
-    reachQualityScore: '0.3',
-    contentConsistencyScore: '50',
   });
 
   const [result, setResult] = useState(null);
@@ -231,7 +208,7 @@ const CampaignCreate = () => {
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)' }}>Campaign Details</div>
-              <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>Fill in both campaign and target influencer data</div>
+              <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>Fill in campaign details and recommendation filters</div>
             </div>
           </div>
 
@@ -244,7 +221,7 @@ const CampaignCreate = () => {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Budget ($)</label>
+                <label className="form-label">Budget (₦)</label>
                 <input type="number" name="budget" className="form-input" placeholder="e.g. 10000" onChange={handleChange} required />
               </div>
               <div className="form-group">
@@ -307,6 +284,10 @@ const CampaignCreate = () => {
                 </select>
               </div>
             </div>
+            <div className="form-group">
+              <label className="form-label">Primary Audience Geo</label>
+              <input type="text" name="primaryAudienceGeo" className="form-input" placeholder="Nigeria" onChange={handleChange} value={formData.primaryAudienceGeo} required />
+            </div>
             <div className="form-row-3">
               <div className="form-group">
                 <label className="form-label">Start Date</label>
@@ -347,140 +328,6 @@ const CampaignCreate = () => {
                   value={formData.targetMaxFollowers}
                   required
                 />
-              </div>
-            </div>
-
-            {/* ML Inputs Section */}
-            <div className="form-section-label" style={{ marginTop: 8 }}>Target Influencer Metrics (for ML Prediction)</div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Influencer Niche</label>
-                <select name="niche" className="form-select" onChange={handleChange} value={formData.niche}>
-                  <option>Beauty</option>
-                  <option>Fitness</option>
-                  <option>Tech</option>
-                  <option>Fashion</option>
-                  <option>Food</option>
-                  <option>Travel</option>
-                  <option>Gaming</option>
-                  <option>Lifestyle</option>
-                  <option>Finance</option>
-                  <option>Health</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Primary Audience Geo</label>
-                <input type="text" name="primaryAudienceGeo" className="form-input" placeholder="Nigeria" onChange={handleChange} value={formData.primaryAudienceGeo} required />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Followers</label>
-                <input type="number" name="followers" className="form-input" placeholder="e.g. 50000" onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Avg Likes</label>
-                <input type="number" name="likes" className="form-input" placeholder="e.g. 3200" onChange={handleChange} required />
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Avg Comments</label>
-                <input type="number" name="comments" className="form-input" placeholder="e.g. 250" onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Avg Shares</label>
-                <input type="number" name="shares" className="form-input" placeholder="e.g. 80" onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Avg Saves</label>
-                <input type="number" name="saves" className="form-input" placeholder="e.g. 140" onChange={handleChange} required />
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Avg Reach</label>
-                <input type="number" name="reach" className="form-input" placeholder="e.g. 26000" onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Account Age Years</label>
-                <input type="number" step="0.1" name="accountAgeYears" className="form-input" min="0" onChange={handleChange} value={formData.accountAgeYears} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Verified</label>
-                <select name="isVerified" className="form-select" onChange={handleChange} value={formData.isVerified}>
-                  <option value="0">No</option>
-                  <option value="1">Yes</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Posts Per Week</label>
-                <input type="number" step="0.1" name="postsPerWeek" className="form-input" min="0" onChange={handleChange} value={formData.postsPerWeek} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fake Followers (%)</label>
-                <input type="number" step="0.1" name="fakeFollowerPct" className="form-input" min="0" max="100" onChange={handleChange} value={formData.fakeFollowerPct} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Authenticity Score</label>
-                <input type="number" step="0.1" name="authenticityScore" className="form-input" min="0" max="100" onChange={handleChange} value={formData.authenticityScore} required />
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Brand Alignment</label>
-                <input type="number" step="0.01" name="brandAlignment" className="form-input" min="0" max="1" onChange={handleChange} value={formData.brandAlignment} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Audience Age Match</label>
-                <input type="number" step="0.01" name="ageMatchScore" className="form-input" min="0" max="1" onChange={handleChange} value={formData.ageMatchScore} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Audience Geo Match</label>
-                <select name="geoMatch" className="form-select" onChange={handleChange} value={formData.geoMatch}>
-                  <option value="1">Yes</option>
-                  <option value="0">No</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Sentiment Score</label>
-                <input type="number" step="0.01" name="sentimentScore" className="form-input" min="0" max="1" onChange={handleChange} value={formData.sentimentScore} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Reach Quality Score</label>
-                <input type="number" step="0.01" name="reachQualityScore" className="form-input" min="0" max="1" onChange={handleChange} value={formData.reachQualityScore} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Content Consistency</label>
-                <input type="number" step="0.1" name="contentConsistencyScore" className="form-input" min="0" max="100" onChange={handleChange} value={formData.contentConsistencyScore} required />
-              </div>
-            </div>
-            <div className="form-row-3">
-              <div className="form-group">
-                <label className="form-label">Female Audience (%)</label>
-                <input type="number" step="0.1" name="femalePct" className="form-input" min="0" max="100" onChange={handleChange} value={formData.femalePct} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Audience 18-24 (%)</label>
-                <input type="number" step="0.1" name="audience18_24" className="form-input" min="0" max="100" onChange={handleChange} value={formData.audience18_24} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Audience 25-34 (%)</label>
-                <input type="number" step="0.1" name="audience25_34" className="form-input" min="0" max="100" onChange={handleChange} value={formData.audience25_34} required />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Audience 35+ (%)</label>
-                <input type="number" step="0.1" name="audience35plus" className="form-input" min="0" max="100" onChange={handleChange} value={formData.audience35plus} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Audience Concentration</label>
-                <input type="number" step="0.01" name="audienceConcentrationScore" className="form-input" min="0" max="1" onChange={handleChange} value={formData.audienceConcentrationScore} required />
               </div>
             </div>
 
@@ -538,11 +385,11 @@ const CampaignCreate = () => {
                 </div>
                 <div className="roi-card" style={{ textAlign: 'left' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <DollarSign size={14} style={{ color: 'var(--gray-900)' }} />
+                    <Banknote size={14} style={{ color: 'var(--gray-900)' }} />
                     <span style={{ fontSize: 11, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pred. Revenue</span>
                   </div>
                   <div className="roi-value" style={{ fontSize: 22, color: 'var(--gray-900)' }}>
-                    ${result.pred_revenue_usd?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ₦{result.pred_revenue_usd?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </div>
                 </div>
                 <div className="roi-card" style={{ textAlign: 'left' }}>
@@ -558,7 +405,7 @@ const CampaignCreate = () => {
 
               {/* Budget info */}
               <div style={{ width: '100%', textAlign: 'left', fontSize: 13, color: 'var(--gray-600)', marginBottom: 14, padding: '10px 12px', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-                Budget estimate used: <span style={{ color: 'var(--gray-900)', fontWeight: 600 }}>${result.budget_used_usd?.toLocaleString()}</span>
+                Budget estimate used: <span style={{ color: 'var(--gray-900)', fontWeight: 600 }}>₦{result.budget_used_usd?.toLocaleString()}</span>
               </div>
 
               {/* Recommendation */}

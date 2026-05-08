@@ -3,14 +3,17 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { ArrowUpRight, Clock, DollarSign, Target, TrendingUp, Users } from 'lucide-react';
+import { ArrowUpRight, Banknote, Clock, Target, TrendingUp, Users } from 'lucide-react';
 import Card from '../../components/common/Card';
-import { checkHealth, completeCampaign, getAnalytics, getCampaigns, getInfluencers } from '../../services/api';
+import {
+  completeCampaign,
+  getBrandDashboard,
+} from '../../services/api';
 
 const EMPTY_ENGAGEMENT_TRENDS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-].map((name) => ({ name, likes: 0, comments: 0, shares: 0 }));
+].map((name) => ({ name, engagement: 0, conversion: 0, revenue: 0, campaigns: 0 }));
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -33,9 +36,11 @@ const getScoreClass = (score) => {
 };
 
 const BrandOverview = () => {
-  const [trendMetric, setTrendMetric] = useState('likes');
-  const [influencersData, setInfluencersData] = useState([]);
+  const [trendMetric, setTrendMetric] = useState('engagement');
+  const [topRecommended, setTopRecommended] = useState([]);
   const [campaignsData, setCampaignsData] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({});
+  const [statusData, setStatusData] = useState([]);
   const [analyticsData, setAnalyticsData] = useState({
     engagementTrends: EMPTY_ENGAGEMENT_TRENDS,
   });
@@ -44,22 +49,24 @@ const BrandOverview = () => {
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        const campaigns = await getCampaigns();
-        setCampaignsData(campaigns);
-
-        const health = await checkHealth();
-        if (!health.trained) return;
-
-        const [influencers, analytics] = await Promise.all([
-          getInfluencers(),
-          getAnalytics()
-        ]);
-        if (influencers.length) {
-          setInfluencersData(influencers);
-        }
+        const dashboard = await getBrandDashboard();
+        setDashboardStats(dashboard.stats || {});
+        setCampaignsData(dashboard.campaigns || []);
+        setStatusData(dashboard.campaignStatus || []);
+        setTopRecommended((dashboard.topRecommended || []).map((rec, idx) => ({
+          id: rec.influencer_user_id || rec.username || rec.influencer_id || idx,
+          name: rec.influencer_id,
+          category: rec.niche,
+          followers: Number(rec.followers_count || 0),
+          engagement: Number(rec.pred_er || 0).toFixed(2),
+          predictedROI: Math.round(Number(rec.pred_roi || 0) * 100),
+          successScore: Math.round(Number(rec.pred_success || 0) * 100),
+          color: '#F97316',
+          platform: rec.platform,
+        })));
         setAnalyticsData({
-          engagementTrends: analytics.engagementTrends?.length
-            ? analytics.engagementTrends
+          engagementTrends: dashboard.engagementTrends?.length
+            ? dashboard.engagementTrends
             : EMPTY_ENGAGEMENT_TRENDS,
         });
       } catch (error) {
@@ -71,26 +78,19 @@ const BrandOverview = () => {
 
   const engagementTrends = useMemo(() => {
     const trends = analyticsData?.engagementTrends || [];
-    if (!trends.length) return [];
-    const baseline = trends[0];
-    return trends.map((entry) => ({
-      ...entry,
-      likes: baseline.likes,
-      comments: baseline.comments,
-      shares: baseline.shares,
-    }));
+    return trends.length ? trends : EMPTY_ENGAGEMENT_TRENDS;
   }, [analyticsData]);
-  const activeCampaigns = campaignsData.filter(c => ['active', 'launched'].includes(c.status)).length;
-  const completedCampaigns = campaignsData.filter(c => c.status === 'completed').length;
-  const totalBudget = campaignsData.reduce((s, c) => s + Number(c.budget || 0), 0);
-  const totalSpent = campaignsData.reduce((s, c) => s + Number(c.spent || 0), 0);
-  const roiCampaigns = campaignsData.filter(c => Number(c.metrics?.roi || 0) > 0);
-  const avgROI = roiCampaigns.length
-    ? Math.round(roiCampaigns.reduce((s, c) => s + Number(c.metrics?.roi || 0), 0) / roiCampaigns.length)
-    : 0;
+  const activeCampaigns = Number(dashboardStats.activeCampaigns || 0);
+  const completedCampaigns = Number(dashboardStats.completedCampaigns || 0);
+  const totalBudget = Number(dashboardStats.totalBudget || 0);
+  const totalSpent = Number(dashboardStats.budgetSpent || 0);
+  const avgROI = Number(dashboardStats.avgROI || 0);
+  const influencerCount = Number(dashboardStats.totalInfluencers || 0);
+  const selectedInfluencerCount = Number(dashboardStats.selectedInfluencers || 0);
+  const campaignsCreated = Number(dashboardStats.campaignsCreated || campaignsData.length || 0);
   const top5 = useMemo(
-    () => [...influencersData].sort((a, b) => b.successScore - a.successScore).slice(0, 5),
-    [influencersData]
+    () => topRecommended.slice(0, 5),
+    [topRecommended]
   );
 
   const handleCompleteCampaign = async (campaign) => {
@@ -113,9 +113,9 @@ const BrandOverview = () => {
   };
 
   const campaignStatusData = [
-    { name: 'Launched', value: activeCampaigns, color: '#F97316' },
-    { name: 'Completed', value: completedCampaigns, color: '#FDBA74' },
-    { name: 'Draft/Selected', value: campaignsData.filter(c => ['draft', 'recommended', 'selected'].includes(c.status)).length, color: '#9A3412' },
+    { name: 'Active', value: statusData.find(s => s.name === 'Active')?.value ?? activeCampaigns, color: '#F97316' },
+    { name: 'Completed', value: statusData.find(s => s.name === 'Completed')?.value ?? completedCampaigns, color: '#F59E0B' },
+    { name: 'Draft/Recommended', value: statusData.find(s => s.name === 'Draft/Recommended')?.value ?? 0, color: '#EF4444' },
   ];
 
   return (
@@ -126,12 +126,12 @@ const BrandOverview = () => {
       {/* Stat Cards */}
       <div className="stats-grid">
         <Card
-          title="Active Campaigns"
-          value={activeCampaigns}
+          title="Campaigns Created"
+          value={campaignsCreated}
           icon={Target}
           iconBg="var(--primary-600)"
           glowColor="#F97316"
-          subtext="Currently running"
+          subtext={`${activeCampaigns} active`}
         />
         <Card
           title="Avg. ROI"
@@ -143,19 +143,19 @@ const BrandOverview = () => {
         />
         <Card
           title="Total Influencers"
-          value={influencersData.length}
+          value={influencerCount}
           icon={Users}
           iconBg="var(--accent-500)"
           glowColor="#F97316"
-          subtext="In network"
+          subtext={selectedInfluencerCount ? 'Invited or selected' : 'Registered'}
         />
         <Card
           title="Budget Spent"
-          value={`$${(totalSpent / 1000).toFixed(1)}K`}
-          icon={DollarSign}
-          iconBg="var(--warning-500)"
+          value={`₦${(totalSpent / 1000).toFixed(1)}K`}
+          icon={Banknote}
+          iconBg="var(--primary-600)"
           glowColor="#F97316"
-          subtext={`of $${(totalBudget / 1000).toFixed(1)}K total`}
+          subtext={`of ₦${(totalBudget / 1000).toFixed(1)}K total`}
         />
       </div>
 
@@ -169,13 +169,13 @@ const BrandOverview = () => {
               <div className="chart-card-subtitle">Monthly performance breakdown</div>
             </div>
             <div className="chart-card-actions">
-              {['likes', 'comments', 'shares'].map((metric) => (
+              {['engagement', 'conversion', 'revenue'].map((metric) => (
                 <button
                   key={metric}
                   className={`chart-tab ${trendMetric === metric ? 'active' : ''}`}
                   onClick={() => setTrendMetric(metric)}
                 >
-                  {metric.charAt(0).toUpperCase() + metric.slice(1)}
+                  {metric === 'revenue' ? 'Revenue' : `${metric.charAt(0).toUpperCase() + metric.slice(1)} Rate`}
                 </button>
               ))}
             </div>
@@ -206,50 +206,63 @@ const BrandOverview = () => {
           <div className="chart-card-header">
             <div>
               <div className="chart-card-title">Campaign Status</div>
-              <div className="chart-card-subtitle">Distribution of campaigns</div>
+              <div className="chart-card-subtitle">{campaignsCreated} campaigns in the database</div>
             </div>
           </div>
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={campaignStatusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={100}
-                  paddingAngle={4}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {campaignStatusData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap', marginTop: 4 }}>
-            {campaignStatusData.map((s) => (
-              <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, display: 'inline-block' }} />
-                <span style={{ color: 'var(--gray-400)' }}>{s.name}</span>
-                <span style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{s.value}</span>
+          <div className="campaign-status-panel">
+            <div className="campaign-status-donut">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={campaignStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={66}
+                    outerRadius={100}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {campaignStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="campaign-status-center">
+                <strong>{campaignsCreated}</strong>
+                <span>Total</span>
               </div>
-            ))}
+            </div>
+
+            <div className="campaign-status-metrics">
+              {campaignStatusData.map((s) => (
+                <div key={s.name} className="campaign-status-metric">
+                  <span style={{ background: s.color }} />
+                  <div>
+                    <strong>{s.value}</strong>
+                    <p>{s.name}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Active campaigns summary */}
-          <div style={{ marginTop: 16 }}>
-            {campaignsData.filter(c => ['active', 'launched', 'selected', 'recommended'].includes(c.status)).slice(0, 4).map(c => (
-              <div key={c.id} className="campaign-mini-row">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Clock size={14} style={{ color: 'var(--primary-700)' }} />
-                  <span style={{ fontWeight: 500, color: 'var(--gray-900)', fontSize: 13 }}>{c.name}</span>
+          <div className="campaign-status-list">
+            {campaignsData.filter(c => ['active', 'launched', 'selected', 'recommended', 'draft'].includes(c.status)).slice(0, 5).map(c => (
+              <div key={c.id} className="campaign-status-row">
+                <div className="campaign-status-row-main">
+                  <Clock size={14} />
+                  <div>
+                    <strong>{c.name}</strong>
+                    <span>{c.category} / ₦{Number(c.budget || 0).toLocaleString()}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="campaign-mini-badge">{c.status}</span>
+                <div className="campaign-status-row-actions">
+                  <span className={`campaign-status-pill campaign-status-${c.status}`}>
+                    {c.status}
+                  </span>
                   {c.status === 'launched' && (
                     <button className="btn-edit" style={{ padding: '5px 8px' }} onClick={() => handleCompleteCampaign(c)}>
                       Evaluate
@@ -258,6 +271,12 @@ const BrandOverview = () => {
                 </div>
               </div>
             ))}
+            {campaignsData.length === 0 && (
+              <div className="empty-state" style={{ minHeight: 120 }}>
+                <Target size={28} />
+                <p>No campaigns created yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -284,6 +303,13 @@ const BrandOverview = () => {
               </tr>
             </thead>
             <tbody>
+              {top5.length === 0 && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 24 }}>
+                    No campaign recommendations yet. Create a campaign prediction to rank influencers from the database.
+                  </td>
+                </tr>
+              )}
               {top5.map((inf, idx) => (
                 <tr key={inf.id}>
                   <td>

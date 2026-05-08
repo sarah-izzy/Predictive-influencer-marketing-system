@@ -5,7 +5,7 @@ import {
   User,
   BarChart3,
   Mail,
-  DollarSign,
+  Banknote,
   TrendingUp,
   LogOut,
   Award,
@@ -20,7 +20,7 @@ const InfluencerSidebar = ({ isOpen, onClose }) => {
     { name: 'My Profile', path: '/influencer/profile', icon: User },
     { name: 'Performance', path: '/influencer/performance', icon: BarChart3 },
     { name: 'Invitations', path: '/influencer/invitations', icon: Mail },
-    { name: 'Earnings', path: '/influencer/earnings', icon: DollarSign },
+    { name: 'Earnings', path: '/influencer/earnings', icon: Banknote },
   ];
 
   return (

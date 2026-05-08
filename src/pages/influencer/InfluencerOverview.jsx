@@ -1,26 +1,64 @@
 import { useEffect, useState } from 'react';
-import { Mail } from 'lucide-react';
+import { Banknote, Mail, Target, TrendingUp, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getInvitations } from '../../services/api';
+import Card from '../../components/common/Card';
+import { getInfluencerDashboard } from '../../services/api';
 
 const InfluencerOverview = () => {
   const { user } = useAuth();
   const [invitations, setInvitations] = useState([]);
+  const [stats, setStats] = useState({});
 
   useEffect(() => {
-    const loadInvitations = async () => {
-      const invitationData = await getInvitations();
-      setInvitations(invitationData || []);
+    const loadDashboard = async () => {
+      const dashboard = await getInfluencerDashboard();
+      setStats(dashboard.stats || {});
+      setInvitations(dashboard.pendingInvitations || []);
     };
-    loadInvitations();
+    loadDashboard();
   }, []);
 
-  const pendingInvites = invitations.filter((invite) => invite.status === 'pending');
+  const pendingInvites = invitations;
 
   return (
     <div>
       <h2 className="page-title">Welcome back, {user?.name || 'Creator'}</h2>
-      <p className="page-subtitle">Your latest campaign invitations</p>
+      <p className="page-subtitle">Your latest campaign activity from the database</p>
+
+      <div className="stats-grid">
+        <Card
+          title="My Followers"
+          value={Number(stats.followers || 0).toLocaleString()}
+          icon={Users}
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
+          subtext="Saved profile count"
+        />
+        <Card
+          title="Engagement Rate"
+          value={`${Number(stats.engagementRate || 0).toFixed(1)}%`}
+          icon={TrendingUp}
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
+          subtext="Saved profile metric"
+        />
+        <Card
+          title="Active Campaigns"
+          value={Number(stats.activeCampaigns || 0)}
+          icon={Target}
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
+          subtext="Accepted invitations"
+        />
+        <Card
+          title="Total Earnings"
+          value={`₦${(Number(stats.totalEarnings || 0) / 1000).toFixed(1)}K`}
+          icon={Banknote}
+          iconBg="var(--primary-600)"
+          glowColor="#F97316"
+          subtext="Accepted campaign budgets"
+        />
+      </div>
 
       <div className="chart-card chart-full-width">
         <div className="chart-card-header">
@@ -39,7 +77,7 @@ const InfluencerOverview = () => {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 600, color: 'var(--success-400)', fontSize: 14 }}>
-                  ${Number(inv.budget || 0).toLocaleString()}
+                  ₦{Number(inv.budget || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>
                   Due {new Date(inv.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

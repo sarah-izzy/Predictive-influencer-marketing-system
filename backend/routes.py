@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -103,7 +104,7 @@ def _serialize_campaign(row) -> dict:
         "updatedAt": row["updated_at"],
         "budget": budget,
         "spent": budget if row["status"] in {"launched", "completed"} else 0,
-        "category": payload.get("category") or payload.get("brand_category") or "Lifestyle",
+        "category": payload.get("brandCategory") or payload.get("category") or payload.get("brand_category") or "Lifestyle",
         "platform": payload.get("platform") or "Instagram",
         "influencers": [i.get("name") or i.get("influencer_id") for i in selected],
         "metrics": {
@@ -461,7 +462,15 @@ def _recommendation_record_from_profile(row, profile: dict, campaign_payload: di
         _first_number(profile.get("brand_alignment_score"), profile.get("brandAlignmentScore"), default=0.85 if category_match else 0.55),
         0.85 if category_match else 0,
     )
+    profile_platform = profile.get("platform")
+    if isinstance(profile_platform, list):
+        profile_platform = profile_platform[0] if profile_platform else None
+    if not profile_platform:
+        platforms = profile.get("platforms")
+        profile_platform = platforms[0] if isinstance(platforms, list) and platforms else None
     return {
+        "influencer_user_id": row["id"],
+        "username": row["username"],
         "influencer_id": row["name"],
         "followers_count": followers,
         "hist_avg_likes_per_post": _first_number(profile.get("hist_avg_likes_per_post"), profile.get("avgLikes")),
@@ -485,7 +494,7 @@ def _recommendation_record_from_profile(row, profile: dict, campaign_payload: di
         "audience_concentration_score": _first_number(profile.get("audience_concentration_score"), profile.get("audienceConcentrationScore"), default=0.65),
         "reach_quality_score": _first_number(profile.get("reach_quality_score"), profile.get("reachQualityScore"), default=0.3),
         "content_consistency_score": _first_number(profile.get("content_consistency_score"), profile.get("contentConsistencyScore"), default=50),
-        "platform": profile.get("platform") or "Instagram",
+        "platform": profile_platform or "Instagram",
         "niche": niche,
         "influencer_tier": profile.get("influencerTier") or row["tier"] or influencer_tier_from_followers(followers),
         "primary_audience_geo": profile.get("primary_audience_geo") or profile.get("primaryAudienceGeo") or "Nigeria",
@@ -632,6 +641,12 @@ def recommend(req: RecommendRequest):
     ]
     if req.max_followers is not None:
         pool = pool[pool["followers_count"] <= req.max_followers]
+    if req.target_platform:
+        target_platform = str(req.target_platform).strip().lower()
+        pool = pool[pool["platform"].astype(str).str.strip().str.lower() == target_platform]
+    if req.target_niche:
+        target_niche = str(req.target_niche).strip().lower()
+        pool = pool[pool["niche"].astype(str).str.strip().str.lower() == target_niche]
     if req.require_geo_match:
         pool = pool[pool.get("audience_geo_match", pd.Series([1]*len(pool))) == 1]
 
@@ -639,6 +654,9 @@ def recommend(req: RecommendRequest):
 
     if n_after == 0:
         return {"filtered": n_before, "passed": 0, "recommendations": [],
+                "campaign_goal": req.campaign_goal,
+                "follower_range": {"min": req.min_followers, "max": req.max_followers},
+                "match_filters": {"platform": req.target_platform, "niche": req.target_niche},
                 "message": "Zero influencers passed filters - loosen constraints."}
 
     pool = feature_engineering(pool).reset_index(drop=True)
@@ -675,7 +693,7 @@ def recommend(req: RecommendRequest):
     result.index += 1
 
     out_cols = [c for c in [
-        "influencer_id","platform","niche","influencer_tier","followers_count",
+        "influencer_user_id","username","influencer_id","platform","niche","influencer_tier","followers_count",
         "audience_authenticity_score","fake_follower_pct","brand_alignment_score",
         "audience_age_match_score","audience_geo_match","hist_sentiment_score",
         "reach_quality_score","content_consistency_score","hist_posts_per_week",
@@ -692,6 +710,10 @@ def recommend(req: RecommendRequest):
         "follower_range": {
             "min": req.min_followers,
             "max": req.max_followers,
+        },
+        "match_filters": {
+            "platform": req.target_platform,
+            "niche": req.target_niche,
         },
         "goal_weights":  w,
         "success_classifier_model": _loaded_model_name("cls_pipe", "success_cls_v4.pkl"),
@@ -897,6 +919,149 @@ def get_campaigns(user: dict = Depends(get_current_user)):
     return [_serialize_campaign(row) for row in rows]
 
 
+@router.get("/dashboard/brand")
+def get_brand_dashboard(user: dict = Depends(get_current_user)):
+    """Return brand dashboard metrics from persisted campaigns, influencers, and invitations."""
+    _require_brand(user)
+    with get_connection() as conn:
+        campaign_rows = conn.execute(
+            "SELECT * FROM campaigns WHERE user_id = ? ORDER BY created_at DESC",
+            (user["id"],),
+        ).fetchall()
+        registered_count = conn.execute(
+            "SELECT COUNT(*) AS count FROM users WHERE role = 'influencer'"
+        ).fetchone()["count"]
+        invitation_rows = conn.execute(
+            "SELECT * FROM invitations WHERE brand_user_id = ?",
+            (user["id"],),
+        ).fetchall()
+
+    campaigns = [_serialize_campaign(row) for row in campaign_rows]
+    selected_ids = {
+        str(item.get("influencer_user_id") or item.get("id") or item.get("influencer_id") or item.get("name"))
+        for campaign in campaigns
+        for item in (campaign.get("selectedInfluencers") or [])
+        if item
+    }
+    active_statuses = {"selected", "launched", "active"}
+    active_campaigns = sum(1 for c in campaigns if c["status"] in active_statuses)
+    completed_campaigns = sum(1 for c in campaigns if c["status"] == "completed")
+    total_budget = sum(float(c.get("budget") or 0) for c in campaigns)
+    budget_spent = sum(
+        float(c.get("budget") or c.get("spent") or 0)
+        for c in campaigns
+        if c["status"] in {"selected", "launched", "completed"}
+    )
+    roi_values = [
+        float(c.get("metrics", {}).get("roi") or 0)
+        for c in campaigns
+        if c.get("prediction_result") or c.get("actualResults") or float(c.get("metrics", {}).get("roi") or 0) != 0
+    ]
+    latest_campaign = next((c for c in campaigns if c.get("prediction_result")), None)
+    top_recommended = []
+    if latest_campaign:
+        try:
+            rec_result = get_campaign_recommendations(latest_campaign["id"], user)
+            top_recommended = rec_result.get("recommendations", [])[:5]
+        except Exception:
+            top_recommended = []
+
+    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    trend_buckets = {
+        month: {"name": month, "engagement": 0.0, "conversion": 0.0, "revenue": 0.0, "campaigns": 0}
+        for month in month_order
+    }
+    for campaign in campaigns:
+        try:
+            created = datetime.fromisoformat(str(campaign.get("createdAt", "")).replace("Z", "+00:00"))
+            month = created.strftime("%b")
+        except ValueError:
+            month = month_order[0]
+        prediction = campaign.get("prediction_result") or {}
+        actual = campaign.get("actualResults") or {}
+        trend_buckets[month]["engagement"] += float(
+            actual.get("actual_engagement_rate")
+            or prediction.get("pred_engagement_rate")
+            or campaign.get("metrics", {}).get("engagement")
+            or 0
+        )
+        trend_buckets[month]["conversion"] += float(
+            actual.get("actual_conversion_rate")
+            or prediction.get("pred_conversion_rate")
+            or 0
+        )
+        trend_buckets[month]["revenue"] += float(
+            actual.get("actual_revenue_usd")
+            or prediction.get("pred_revenue_usd")
+            or 0
+        )
+        trend_buckets[month]["campaigns"] += 1
+    engagement_trends = []
+    for month in month_order:
+        bucket = trend_buckets[month]
+        count = bucket["campaigns"]
+        engagement_trends.append({
+            "name": month,
+            "engagement": round(bucket["engagement"] / count, 2) if count else 0,
+            "conversion": round(bucket["conversion"] / count, 2) if count else 0,
+            "revenue": round(bucket["revenue"], 2),
+            "campaigns": count,
+        })
+
+    return {
+        "stats": {
+            "campaignsCreated": len(campaigns),
+            "activeCampaigns": active_campaigns,
+            "completedCampaigns": completed_campaigns,
+            "registeredInfluencers": registered_count,
+            "selectedInfluencers": len(selected_ids),
+            "totalInfluencers": len(selected_ids) or registered_count,
+            "totalBudget": round(total_budget, 2),
+            "budgetSpent": round(budget_spent, 2),
+            "avgROI": round(sum(roi_values) / len(roi_values)) if roi_values else 0,
+            "pendingInvitations": sum(1 for row in invitation_rows if row["status"] == "pending"),
+            "acceptedInvitations": sum(1 for row in invitation_rows if row["status"] == "accepted"),
+            "declinedInvitations": sum(1 for row in invitation_rows if row["status"] == "declined"),
+        },
+        "campaignStatus": [
+            {"name": "Active", "value": active_campaigns},
+            {"name": "Completed", "value": completed_campaigns},
+            {"name": "Draft/Recommended", "value": sum(1 for c in campaigns if c["status"] in {"draft", "recommended"})},
+        ],
+        "campaigns": campaigns,
+        "topRecommended": top_recommended,
+        "engagementTrends": engagement_trends,
+    }
+
+
+@router.get("/dashboard/influencer")
+def get_influencer_dashboard(user: dict = Depends(get_current_user)):
+    """Return influencer overview metrics from persisted invitations and profile data."""
+    _require_influencer(user)
+    invitations = get_invitations(user)
+    pending = [inv for inv in invitations if inv["status"] == "pending"]
+    accepted = [inv for inv in invitations if inv["status"] == "accepted"]
+    declined = [inv for inv in invitations if inv["status"] == "declined"]
+    profile = get_profile(user)
+    followers = int(float(profile.get("followersCount") or profile.get("followers") or user.get("followers") or 0))
+    engagement = float(profile.get("engagementRate") or profile.get("engagement") or 0)
+    earnings = sum(float(inv.get("budget") or 0) for inv in accepted)
+
+    return {
+        "stats": {
+            "followers": followers,
+            "engagementRate": engagement,
+            "pendingInvitations": len(pending),
+            "acceptedInvitations": len(accepted),
+            "declinedInvitations": len(declined),
+            "activeCampaigns": len(accepted),
+            "totalEarnings": round(earnings, 2),
+        },
+        "invitations": invitations,
+        "pendingInvitations": pending,
+    }
+
+
 @router.get("/campaigns/{campaign_id}/report")
 def get_campaign_report(campaign_id: str, user: dict = Depends(get_current_user)):
     """Generate a downloadable PDF campaign report for the signed-in brand."""
@@ -982,9 +1147,61 @@ def get_campaign_recommendations(campaign_id: str, user: dict = Depends(get_curr
             ORDER BY u.name
             """
         ).fetchall()
+        invitation_rows = conn.execute(
+            """
+            SELECT *
+            FROM invitations
+            WHERE campaign_id = ? AND brand_user_id = ?
+            """,
+            (campaign_id, user["id"]),
+        ).fetchall()
 
     campaign = _serialize_campaign(campaign_row)
     payload = campaign["payload"] or {}
+    invitation_lookup = {}
+    for invitation in invitation_rows:
+        for value in (
+            invitation["influencer_user_id"],
+            invitation["influencer_ref"],
+            invitation["influencer_name"],
+        ):
+            if value:
+                invitation_lookup[str(value).strip().lower()] = invitation
+
+    def attach_invitation_status(item: dict) -> dict:
+        keys = [
+            item.get("influencer_user_id"),
+            item.get("id"),
+            item.get("username"),
+            item.get("influencer_id"),
+            item.get("name"),
+        ]
+        invitation = None
+        for key in keys:
+            if not key:
+                continue
+            invitation = invitation_lookup.get(str(key).strip().lower())
+            if invitation:
+                break
+        if invitation:
+            item["invitation"] = {
+                "id": invitation["id"],
+                "status": invitation["status"],
+                "message": invitation["message"],
+                "createdAt": invitation["created_at"],
+                "respondedAt": invitation["responded_at"],
+            }
+            item["invitation_status"] = invitation["status"]
+        else:
+            item["invitation"] = None
+            item["invitation_status"] = "not_sent"
+        return item
+
+    campaign["selectedInfluencers"] = [
+        attach_invitation_status(dict(item))
+        for item in (campaign.get("selectedInfluencers") or [])
+        if isinstance(item, dict)
+    ]
     pool = [
         _recommendation_record_from_profile(row, _json_loads(row["profile"], {}), payload)
         for row in influencer_rows
@@ -1013,16 +1230,87 @@ def get_campaign_recommendations(campaign_id: str, user: dict = Depends(get_curr
     max_followers = int(float(max_followers_raw)) if max_followers_raw not in (None, "") else None
     if max_followers is not None and max_followers < min_followers:
         min_followers, max_followers = max_followers, min_followers
-    result = recommend(RecommendRequest(
-        pool=pool,
-        campaign_goal=campaign_goal,
-        top_n=min(20, len(pool)),
-        min_auth=50,
-        max_fake=30,
-        min_followers=min_followers,
-        max_followers=max_followers,
-        require_geo_match=False,
-    ))
+    target_platform = payload.get("platform") or None
+    target_niche = (
+        payload.get("brandCategory")
+        or payload.get("category")
+        or payload.get("brand_category")
+        or payload.get("niche")
+        or None
+    )
+    top_n = min(20, len(pool))
+
+    attempts = [
+        {
+            "label": "exact niche, platform, and follower range",
+            "min_followers": min_followers,
+            "max_followers": max_followers,
+            "target_platform": target_platform,
+            "target_niche": target_niche,
+        },
+        {
+            "label": "exact niche and platform",
+            "min_followers": 1000,
+            "max_followers": None,
+            "target_platform": target_platform,
+            "target_niche": target_niche,
+        },
+        {
+            "label": "exact niche",
+            "min_followers": 1000,
+            "max_followers": None,
+            "target_platform": None,
+            "target_niche": target_niche,
+        },
+        {
+            "label": "platform and follower quality",
+            "min_followers": 1000,
+            "max_followers": None,
+            "target_platform": target_platform,
+            "target_niche": None,
+        },
+        {
+            "label": "quality only",
+            "min_followers": 1000,
+            "max_followers": None,
+            "target_platform": None,
+            "target_niche": None,
+        },
+    ]
+    result = None
+    used_attempt = attempts[0]
+    for attempt in attempts:
+        result = recommend(RecommendRequest(
+            pool=pool,
+            campaign_goal=campaign_goal,
+            top_n=top_n,
+            min_auth=50,
+            max_fake=30,
+            min_followers=attempt["min_followers"],
+            max_followers=attempt["max_followers"],
+            target_platform=attempt["target_platform"],
+            target_niche=attempt["target_niche"],
+            require_geo_match=False,
+        ))
+        used_attempt = attempt
+        if result.get("recommendations"):
+            break
+    result["applied_match_level"] = used_attempt["label"]
+    result["requested_match_filters"] = {
+        "platform": target_platform,
+        "niche": target_niche,
+        "minFollowers": min_followers,
+        "maxFollowers": max_followers,
+    }
+    result["recommendations"] = [
+        attach_invitation_status(dict(rec))
+        for rec in result.get("recommendations", [])
+    ]
+    result["invitation_summary"] = {
+        "pending": sum(1 for row in invitation_rows if row["status"] == "pending"),
+        "accepted": sum(1 for row in invitation_rows if row["status"] == "accepted"),
+        "declined": sum(1 for row in invitation_rows if row["status"] == "declined"),
+    }
     result["campaign"] = campaign
     return result
 
@@ -1085,16 +1373,34 @@ def select_influencers(campaign_id: str, req: CampaignSelectionRequest, user: di
         )
 
         influencer_users = conn.execute("SELECT * FROM users WHERE role = 'influencer'").fetchall()
-        fallback_user_id = influencer_users[0]["id"] if influencer_users else None
+        influencer_lookup = {}
+        for influencer_user in influencer_users:
+            for key in ("id", "name", "username", "email"):
+                value = influencer_user[key]
+                if value:
+                    influencer_lookup[str(value).strip().lower()] = influencer_user["id"]
         existing_refs = {
             row["influencer_ref"]
             for row in conn.execute("SELECT influencer_ref FROM invitations WHERE campaign_id = ?", (campaign_id,)).fetchall()
         }
         for influencer in req.influencers:
-            ref = str(influencer.get("influencer_id") or influencer.get("id") or influencer.get("name") or uuid.uuid4().hex[:8])
+            ref = str(
+                influencer.get("influencer_user_id")
+                or influencer.get("id")
+                or influencer.get("username")
+                or influencer.get("influencer_id")
+                or influencer.get("name")
+                or uuid.uuid4().hex[:8]
+            )
             if ref in existing_refs:
                 continue
             name = str(influencer.get("name") or influencer.get("influencer_id") or ref)
+            influencer_user_id = (
+                influencer.get("influencer_user_id")
+                or influencer_lookup.get(ref.strip().lower())
+                or influencer_lookup.get(name.strip().lower())
+                or influencer_lookup.get(str(influencer.get("username") or "").strip().lower())
+            )
             conn.execute(
                 """
                 INSERT INTO invitations (
@@ -1107,7 +1413,7 @@ def select_influencers(campaign_id: str, req: CampaignSelectionRequest, user: di
                     f"inv-{uuid.uuid4().hex[:12]}",
                     campaign_id,
                     user["id"],
-                    fallback_user_id,
+                    influencer_user_id,
                     ref,
                     name,
                     req.message,
@@ -1237,7 +1543,7 @@ def get_invitations(user: dict = Depends(get_current_user)):
             "brandName": row["brand_name"],
             "budget": float(payload.get("budget") or 0),
             "platform": payload.get("platform") or "Instagram",
-            "category": payload.get("category") or "Lifestyle",
+            "category": payload.get("brandCategory") or payload.get("category") or payload.get("brand_category") or "Lifestyle",
             "description": row["message"] or f"Collaboration request for {row['influencer_name']}.",
             "deadline": payload.get("endDate") or payload.get("deadline") or "2026-06-30",
             "status": row["status"],

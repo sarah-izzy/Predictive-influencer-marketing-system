@@ -304,15 +304,15 @@ const InfluencerProfile = () => {
           </div>
           <div className="form-row form-row-3">
             <div className="form-group">
-              <label className="form-label">Per Post ($)</label>
+              <label className="form-label">Per Post (₦)</label>
               <input type="number" min="0" name="ratePerPost" className="form-input" value={profile.ratePerPost} onChange={handleChange} disabled={!editing} />
             </div>
             <div className="form-group">
-              <label className="form-label">Per Story ($)</label>
+              <label className="form-label">Per Story (₦)</label>
               <input type="number" min="0" name="ratePerStory" className="form-input" value={profile.ratePerStory} onChange={handleChange} disabled={!editing} />
             </div>
             <div className="form-group">
-              <label className="form-label">Per Reel ($)</label>
+              <label className="form-label">Per Reel (₦)</label>
               <input type="number" min="0" name="ratePerReel" className="form-input" value={profile.ratePerReel} onChange={handleChange} disabled={!editing} />
             </div>
           </div>

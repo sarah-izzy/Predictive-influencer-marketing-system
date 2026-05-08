@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { Users, TrendingUp, DollarSign, Target, ArrowUpRight, Eye } from 'lucide-react';
+import { Users, TrendingUp, Banknote, Target, ArrowUpRight, Eye } from 'lucide-react';
 import Card from '../components/common/Card';
 import { getAnalytics } from '../services/api';
 import { influencers, platformData } from '../data/dummyData';
@@ -105,7 +105,7 @@ const Dashboard = () => {
         <Card
           title="Predicted ROI"
           value={`${avgROI}%`}
-          icon={DollarSign}
+          icon={Banknote}
           iconBg="#F97316"
           glowColor="#F97316"
           change="15.3%"

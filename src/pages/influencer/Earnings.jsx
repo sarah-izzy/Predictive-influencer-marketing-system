@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { DollarSign, TrendingUp, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { Banknote, TrendingUp, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import Card from '../../components/common/Card';
 import { checkHealth, getEarnings, trainModels } from '../../services/api';
 
@@ -13,7 +13,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p className="label">{label}</p>
       {payload.map((entry, i) => (
         <p key={i} className="value" style={{ color: entry.color }}>
-          {entry.name}: {typeof entry.value === 'number' ? `$${entry.value.toLocaleString()}` : entry.value}
+          {entry.name}: {typeof entry.value === 'number' ? `₦${entry.value.toLocaleString()}` : entry.value}
         </p>
       ))}
     </div>
@@ -71,8 +71,8 @@ const Earnings = () => {
       <div className="stats-grid">
         <Card
           title="Total Earnings"
-          value={`$${(totalEarnings / 1000).toFixed(1)}K`}
-          icon={DollarSign}
+          value={`₦${(totalEarnings / 1000).toFixed(1)}K`}
+          icon={Banknote}
           iconBg="#F97316"
           glowColor="#F97316"
           change="22.3%"
@@ -81,7 +81,7 @@ const Earnings = () => {
         />
         <Card
           title="Avg per Campaign"
-          value={`$${avgPerCampaign.toLocaleString()}`}
+          value={`₦${avgPerCampaign.toLocaleString()}`}
           icon={TrendingUp}
           iconBg="#F97316"
           glowColor="#F97316"
@@ -89,7 +89,7 @@ const Earnings = () => {
         />
         <Card
           title="Best Month"
-          value={`$${highestMonth.amount.toLocaleString()}`}
+          value={`₦${highestMonth.amount.toLocaleString()}`}
           icon={Calendar}
           iconBg="#F97316"
           glowColor="#F97316"
@@ -97,7 +97,7 @@ const Earnings = () => {
         />
         <Card
           title="Pending Payments"
-          value={`$${pendingAmount.toLocaleString()}`}
+          value={`₦${pendingAmount.toLocaleString()}`}
           icon={Clock}
           iconBg="#F97316"
           glowColor="#F97316"
@@ -119,7 +119,7 @@ const Earnings = () => {
               <BarChart data={monthlyData} barSize={32}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis dataKey="month" stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} tickFormatter={v => `$${v / 1000}K`} />
+                <YAxis stroke="#4b5563" fontSize={12} tickLine={false} axisLine={false} tickFormatter={v => `₦${v / 1000}K`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="amount" name="Earnings" fill="rgba(249, 115, 22, 0.14)" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -152,7 +152,7 @@ const Earnings = () => {
                 <tr key={p.id}>
                   <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{p.campaign}</td>
                   <td style={{ color: 'var(--gray-300)' }}>{p.brand}</td>
-                  <td style={{ fontWeight: 600, color: 'var(--success-400)' }}>${p.amount.toLocaleString()}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--success-400)' }}>₦{p.amount.toLocaleString()}</td>
                   <td style={{ color: 'var(--gray-400)' }}>
                     {new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
