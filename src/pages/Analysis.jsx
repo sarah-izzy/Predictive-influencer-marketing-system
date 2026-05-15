@@ -137,7 +137,7 @@ const Analysis = () => {
                       {inf.category}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 600, color: '#e2e8f0' }}>
+                  <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
                     {(inf.followers / 1000).toFixed(0)}K
                   </td>
                   <td>
@@ -145,10 +145,10 @@ const Analysis = () => {
                       <div className="engagement-bar">
                         <div className="engagement-bar-fill" style={{
                           width: `${(inf.engagement / 10) * 100}%`,
-                          background: 'linear-gradient(90deg, var(--primary-500), var(--accent-500))',
+                          background: 'var(--primary-600)',
                         }} />
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>
                         {inf.engagement}%
                       </span>
                     </div>
@@ -189,14 +189,14 @@ const Analysis = () => {
             {radarData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarData}>
-                  <PolarGrid stroke="rgba(255,255,255,0.06)" />
+                  <PolarGrid stroke="var(--gray-200)" />
                   <PolarAngleAxis dataKey="metric" stroke="#6b7280" fontSize={12} />
                   <PolarRadiusAxis stroke="#374151" fontSize={10} />
                   <Radar
                     name="Performance"
                     dataKey="value"
-                    stroke="#6366f1"
-                    fill="#6366f1"
+                    stroke="#F97316"
+                    fill="#F97316"
                     fillOpacity={0.2}
                     strokeWidth={2}
                   />
@@ -221,7 +221,7 @@ const Analysis = () => {
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
                 <XAxis
                   type="number"
                   dataKey="engagement"

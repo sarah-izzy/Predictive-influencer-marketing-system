@@ -1,315 +1,391 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Award, BarChart3, CheckCircle2, Clock, Send, Target, TrendingUp, Users, XCircle } from 'lucide-react';
 import {
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  ResponsiveContainer,
-} from 'recharts';
-import { Search, Filter, ArrowUpRight, Star, Users, TrendingUp, Sparkles, Activity, AlertTriangle } from 'lucide-react';
-import { getRecommendedInfluencers, checkHealth, trainModels } from '../../services/api';
+  getCampaignRecommendations,
+  getCampaigns,
+  selectCampaignInfluencers,
+} from '../../services/api';
+import SweetAlert from '../../components/common/SweetAlert';
 
-const getScoreClass = (score) => {
-  if (score >= 85) return 'score-high';
-  if (score >= 70) return 'score-medium';
-  return 'score-low';
+const markerLabels = {
+  engagementRate: 'engagement',
+  audienceAuthenticity: 'authentic audience',
+  brandAlignment: 'brand fit',
+  conversionRate: 'conversion',
+  predictedRoi: 'ROI',
+  audienceDemographicsMatch: 'audience match',
+  sentimentScore: 'sentiment',
+  historicalCampaignPerformance: 'past performance',
+  reachQuality: 'reach quality',
+  postingConsistency: 'posting consistency',
+};
+
+const topReasons = (markers = {}) =>
+  Object.entries(markers)
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+    .slice(0, 3)
+    .map(([key, value]) => `${markerLabels[key] || key}: ${Math.round(value)}%`);
+
+const invitationStatusMeta = {
+  accepted: { label: 'Accepted invitation', className: 'rec-invite-status-accepted', icon: CheckCircle2 },
+  pending: { label: 'Invitation pending', className: 'rec-invite-status-pending', icon: Clock },
+  declined: { label: 'Declined invitation', className: 'rec-invite-status-declined', icon: XCircle },
+  not_sent: { label: 'Not invited yet', className: 'rec-invite-status-none', icon: Send },
 };
 
 const Recommendations = () => {
-  const [influencers, setInfluencers] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [recommendations, setRecommendations] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedInfluencer, setSelectedInfluencer] = useState(null);
-  const [filters, setFilters] = useState({
-    category: 'All',
-    platform: 'All',
-    minEngagement: '',
-    search: '',
-    campaignGoal: 'Sales Conversion',
-  });
-  const [sortBy, setSortBy] = useState('mlScore');
-  const [backendReady, setBackendReady] = useState(null);
-  const [training, setTraining] = useState(false);
+  const [rankingLoading, setRankingLoading] = useState(false);
+  const [sendingInvites, setSendingInvites] = useState(false);
+  const [selectedInfluencerIds, setSelectedInfluencerIds] = useState([]);
+  const [alert, setAlert] = useState(null);
+  const [error, setError] = useState('');
 
-  // Check backend health and auto-train on mount
   useEffect(() => {
-    const init = async () => {
+    const load = async () => {
+      setLoading(true);
+      setError('');
       try {
-        const health = await checkHealth();
-        if (health.trained) {
-          setBackendReady(true);
-        } else {
-          setTraining(true);
-          await trainModels(800);
-          setBackendReady(true);
-          setTraining(false);
-        }
-      } catch {
-        setBackendReady(false);
-        setTraining(false);
+        const campaignData = await getCampaigns();
+        setCampaigns(campaignData || []);
+        const activeId = localStorage.getItem('influencerAI_activeCampaignId');
+        setSelectedCampaignId(
+          (campaignData || []).find((campaign) => campaign.id === activeId)?.id
+          || campaignData?.[0]?.id
+          || ''
+        );
+      } catch (err) {
+        setError(err.message || 'Unable to load campaigns and influencers.');
+      } finally {
+        setLoading(false);
       }
     };
-    init();
+    load();
   }, []);
 
-  useEffect(() => {
-    if (backendReady) {
-      fetchInfluencers();
-    }
-  }, [backendReady, filters.category, filters.platform, filters.minEngagement, filters.campaignGoal]);
+  const selectedCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === selectedCampaignId),
+    [campaigns, selectedCampaignId]
+  );
 
-  const fetchInfluencers = async () => {
-    setLoading(true);
-    const result = await getRecommendedInfluencers({
-      category: filters.category,
-      platform: filters.platform,
-      minFollowers: filters.minEngagement ? parseFloat(filters.minEngagement) * 10000 : undefined,
-      campaignGoal: filters.campaignGoal,
-    });
-    setInfluencers(result);
-    if (result.length > 0 && !selectedInfluencer) {
-      setSelectedInfluencer(result[0]);
-    }
-    setLoading(false);
+  useEffect(() => {
+    const rank = async () => {
+      if (!selectedCampaign) {
+        setRecommendations([]);
+        setSummary(null);
+        return;
+      }
+      setRankingLoading(true);
+      setError('');
+      try {
+        const result = await getCampaignRecommendations(selectedCampaign.id);
+        const ranked = (result.recommendations || []).map((rec, idx) => ({
+          ...rec,
+          rank: idx + 1,
+          name: rec.influencer_id,
+          followers: rec.followers_count,
+          category: rec.niche,
+          engagement: Number(rec.pred_er || 0),
+          conversion: Number(rec.pred_cvr || 0),
+          predictedROI: Number(rec.pred_roi || 0) * 100,
+          successScore: Number(rec.pred_success || 0) * 100,
+          mlScore: Number(rec.composite_score || 0) * 100,
+          invitationStatus: rec.invitation_status || rec.invitation?.status || 'not_sent',
+          invitation: rec.invitation || null,
+          reason: rec.grading?.explanation || 'Picked for its campaign fit and predicted performance.',
+        }));
+        setRecommendations(ranked);
+        setSelectedInfluencerIds((selectedCampaign.selectedInfluencers || [])
+          .map((item) => item.influencer_user_id || item.id || item.influencer_id || item.name)
+          .filter(Boolean));
+        setSummary(result);
+      } catch (err) {
+        setRecommendations([]);
+        setSummary(null);
+        setError(err.message || 'Unable to rank influencers for this campaign.');
+      } finally {
+        setRankingLoading(false);
+      }
+    };
+    rank();
+  }, [selectedCampaign]);
+
+  const toggleInfluencer = (rec) => {
+    const id = rec.influencer_user_id || rec.username || rec.name;
+    setSelectedInfluencerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
-  const displayed = useMemo(() => {
-    let results = [...influencers];
-    if (filters.search) {
-      results = results.filter(i =>
-        i.name.toLowerCase().includes(filters.search.toLowerCase())
-      );
-    }
-    results.sort((a, b) => b[sortBy] - a[sortBy]);
-    return results;
-  }, [influencers, filters.search, sortBy]);
+  const selectedRecommendations = useMemo(
+    () => recommendations.filter((rec) => selectedInfluencerIds.includes(rec.influencer_user_id || rec.username || rec.name)),
+    [recommendations, selectedInfluencerIds]
+  );
 
-  const radarData = selectedInfluencer
-    ? [
-        { metric: 'Engagement', value: Math.min(100, (selectedInfluencer.pred_er || selectedInfluencer.engagement) * 12) },
-        { metric: 'Followers', value: Math.min(100, (selectedInfluencer.followers / 210000) * 100) },
-        { metric: 'Conversion', value: Math.min(100, (selectedInfluencer.pred_cvr || 3) * 15) },
-        { metric: 'ML Score', value: Math.min(100, selectedInfluencer.mlScore) },
-        { metric: 'Success', value: Math.min(100, (selectedInfluencer.pred_success || 0.7) * 100) },
-        { metric: 'Score', value: selectedInfluencer.successScore },
-      ]
-    : [];
+  const handleSendInvitations = async () => {
+    if (!selectedCampaign || selectedRecommendations.length === 0) return;
+    setSendingInvites(true);
+    setError('');
+    setAlert(null);
+    try {
+      const invitePayload = selectedRecommendations.map((rec) => ({
+        influencer_user_id: rec.influencer_user_id,
+        id: rec.influencer_user_id,
+        username: rec.username,
+        influencer_id: rec.name,
+        name: rec.name,
+        platform: rec.platform,
+        niche: rec.category,
+        followers_count: rec.followers,
+        composite_score: rec.composite_score,
+        pred_success: rec.pred_success,
+        pred_roi: rec.pred_roi,
+      }));
+      const result = await selectCampaignInfluencers(
+        selectedCampaign.id,
+        invitePayload,
+        `Invitation for ${selectedCampaign.name}`
+      );
+      setCampaigns((prev) => prev.map((campaign) => campaign.id === selectedCampaign.id ? result.campaign : campaign));
+      setAlert({
+        type: 'success',
+        title: 'Invitations sent',
+        message: `${invitePayload.length} influencer${invitePayload.length === 1 ? '' : 's'} received the campaign invitation.`,
+      });
+    } catch (err) {
+      setError(err.message || 'Unable to send invitations.');
+    } finally {
+      setSendingInvites(false);
+    }
+  };
 
   return (
     <div>
+      <SweetAlert
+        open={Boolean(alert)}
+        type={alert?.type}
+        title={alert?.title}
+        message={alert?.message}
+        onClose={() => setAlert(null)}
+      />
+
       <h2 className="page-title">Influencer Recommendations</h2>
-      <p className="page-subtitle">ML-ranked influencers optimized for your campaign goals</p>
+      <p className="page-subtitle">Select a campaign to see ranked influencers and why each one was picked</p>
 
-      {/* Backend status */}
-      {backendReady === false && !training && (
-        <div className="glass-card" style={{ marginBottom: 16, padding: '12px 20px', borderLeft: '3px solid #f97316' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#fb923c', fontSize: 13 }}>
+      {error && (
+        <div className="glass-card" style={{ marginBottom: 16, padding: '12px 20px', borderLeft: '3px solid var(--danger-500)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--gray-900)', fontSize: 13 }}>
             <AlertTriangle size={16} />
-            ML backend offline — showing local fallback data. Start backend: <code style={{ color: '#e2e8f0' }}>cd backend && uvicorn main:app --reload</code>
+            {error}
           </div>
         </div>
       )}
-      {training && (
-        <div className="glass-card" style={{ marginBottom: 16, padding: '12px 20px', borderLeft: '3px solid #6366f1' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#818cf8', fontSize: 13 }}>
-            <Activity size={16} className="animate-pulse" />
-            Training ML models... recommendations will appear shortly.
+      <div className="glass-card rec-campaign-picker">
+        <div className="chart-card-header" style={{ marginBottom: 0 }}>
+          <div>
+            <div className="chart-card-title">Campaign</div>
+            <div className="chart-card-subtitle">Choose one campaign to rank registered influencers</div>
           </div>
+          <Target size={18} color="var(--primary-600)" />
         </div>
-      )}
 
-      {/* Filters */}
-      <div className="rec-filters">
-        <div className="search-bar" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
-          <Search size={18} />
-          <input
-            placeholder="Search influencers..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          />
-        </div>
-        <select
-          className="form-select"
-          style={{ width: 'auto', minWidth: 140 }}
-          value={filters.category}
-          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-        >
-          <option value="All">All Categories</option>
-          <option>Tech</option>
-          <option>Health</option>
-          <option>Gaming</option>
-          <option>Lifestyle</option>
-          <option>Food</option>
-          <option>Fashion</option>
-        </select>
-        <select
-          className="form-select"
-          style={{ width: 'auto', minWidth: 140 }}
-          value={filters.platform}
-          onChange={(e) => setFilters({ ...filters, platform: e.target.value })}
-        >
-          <option value="All">All Platforms</option>
-          <option>Instagram</option>
-          <option>TikTok</option>
-          <option>YouTube</option>
-          <option>Twitter/X</option>
-        </select>
-        <select
-          className="form-select"
-          style={{ width: 'auto', minWidth: 160 }}
-          value={filters.campaignGoal}
-          onChange={(e) => setFilters({ ...filters, campaignGoal: e.target.value })}
-        >
-          <option value="Sales Conversion">Sales Conversion</option>
-          <option value="Brand Awareness">Brand Awareness</option>
-          <option value="Lead Generation">Lead Generation</option>
-          <option value="Product Launch">Product Launch</option>
-          <option value="Community Building">Community Building</option>
-        </select>
-        <select
-          className="form-select"
-          style={{ width: 'auto', minWidth: 140 }}
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-        >
-          <option value="mlScore">Sort by ML Score</option>
-          <option value="successScore">Sort by Success Score</option>
-          <option value="engagement">Sort by Engagement</option>
-          <option value="predictedROI">Sort by ROI</option>
-          <option value="followers">Sort by Followers</option>
-        </select>
-      </div>
-
-      <div className="rec-layout">
-        {/* Influencer Cards List */}
-        <div className="rec-list">
-          {loading ? (
-            <div className="empty-state" style={{ minHeight: 200 }}>
-              <Sparkles size={32} />
-              <p>Running ML ranking algorithm...</p>
-            </div>
-          ) : displayed.length === 0 ? (
-            <div className="empty-state" style={{ minHeight: 200 }}>
-              <Users size={32} />
-              <p>No influencers match your filters</p>
-            </div>
-          ) : (
-            displayed.map((inf, idx) => (
-              <div
-                key={inf.id}
-                className={`rec-card ${selectedInfluencer?.id === inf.id ? 'rec-card-selected' : ''}`}
-                onClick={() => setSelectedInfluencer(inf)}
+        {loading ? (
+          <div className="empty-state rec-picker-empty">
+            <BarChart3 size={28} />
+            <p>Loading campaigns...</p>
+          </div>
+        ) : campaigns.length === 0 ? (
+          <div className="empty-state rec-picker-empty">
+            <Target size={28} />
+            <p>Create a campaign first to generate recommendations.</p>
+          </div>
+        ) : (
+          <>
+            <div className="rec-select-wrap">
+              <label className="form-label" htmlFor="campaign-select">Campaign</label>
+              <select
+                id="campaign-select"
+                className="form-select"
+                value={selectedCampaignId}
+                onChange={(e) => setSelectedCampaignId(e.target.value)}
               >
-                <div className="rec-card-rank">
-                  <span className={`rank-badge ${idx < 3 ? `rank-${idx + 1}` : 'rank-default'}`}>
-                    {idx + 1}
-                  </span>
-                </div>
-                <div className="rec-card-avatar" style={{ background: inf.color }}>
-                  {inf.name.charAt(0)}
-                </div>
-                <div className="rec-card-info">
-                  <div className="rec-card-name">{inf.name}</div>
-                  <div className="rec-card-meta">
-                    {inf.category} · {inf.platform} · {(inf.followers / 1000).toFixed(0)}K
-                  </div>
-                </div>
-                <div className="rec-card-scores">
-                  <div className="rec-card-ml-score">
-                    <Star size={14} />
-                    <span>{inf.mlScore}</span>
-                  </div>
-                  <div className="rec-card-roi">
-                    <ArrowUpRight size={12} style={{ color: 'var(--success-400)' }} />
-                    <span>{inf.predictedROI}%</span>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                {campaigns.map((campaign) => {
+                  const payload = campaign.payload || {};
+                  const goal = payload.campaignGoal || payload.campaign_goal || 'Sales Conversion';
+                  const category = payload.brandCategory || payload.category || campaign.category || 'Lifestyle';
+                  return (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name} - {goal} / {category}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
 
-        {/* Detail Panel */}
-        <div className="rec-detail">
-          {selectedInfluencer ? (
-            <div className="glass-card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-                <div className="rec-detail-avatar" style={{ background: selectedInfluencer.color }}>
-                  {selectedInfluencer.name.charAt(0)}
+            {selectedCampaign && (
+              <div className="rec-campaign-summary">
+                <div>
+                  <span>Goal</span>
+                  <strong>{selectedCampaign.payload?.campaignGoal || selectedCampaign.payload?.campaign_goal || 'Sales Conversion'}</strong>
                 </div>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>{selectedInfluencer.name}</div>
-                  <div style={{ fontSize: 13, color: 'var(--gray-400)' }}>
-                    {selectedInfluencer.category} · {selectedInfluencer.platform}
-                  </div>
+                  <span>Category</span>
+                  <strong>{selectedCampaign.payload?.brandCategory || selectedCampaign.payload?.category || selectedCampaign.category || 'Lifestyle'}</strong>
                 </div>
-                <span className={`score-badge ${getScoreClass(selectedInfluencer.successScore)}`} style={{ marginLeft: 'auto' }}>
-                  Score: {selectedInfluencer.successScore}
-                </span>
-              </div>
-
-              {/* Stats */}
-              <div className="rec-detail-stats">
-                <div className="rec-detail-stat">
-                  <Users size={16} style={{ color: 'var(--primary-400)' }} />
-                  <div>
-                    <div className="rec-detail-stat-val">{(selectedInfluencer.followers / 1000).toFixed(0)}K</div>
-                    <div className="rec-detail-stat-label">Followers</div>
-                  </div>
+                <div>
+                  <span>Budget</span>
+                  <strong>₦{Number(selectedCampaign.budget || selectedCampaign.payload?.budget || 0).toLocaleString()}</strong>
                 </div>
-                <div className="rec-detail-stat">
-                  <TrendingUp size={16} style={{ color: 'var(--success-400)' }} />
-                  <div>
-                    <div className="rec-detail-stat-val">
-                      {selectedInfluencer.pred_er ? selectedInfluencer.pred_er.toFixed(2) : selectedInfluencer.engagement}%
-                    </div>
-                    <div className="rec-detail-stat-label">Pred. ER</div>
-                  </div>
-                </div>
-                <div className="rec-detail-stat">
-                  <ArrowUpRight size={16} style={{ color: 'var(--accent-400)' }} />
-                  <div>
-                    <div className="rec-detail-stat-val">
-                      {selectedInfluencer.pred_success ? `${(selectedInfluencer.pred_success * 100).toFixed(0)}%` : `${selectedInfluencer.predictedROI}%`}
-                    </div>
-                    <div className="rec-detail-stat-label">Success Prob.</div>
-                  </div>
-                </div>
-                <div className="rec-detail-stat">
-                  <Star size={16} style={{ color: '#fbbf24' }} />
-                  <div>
-                    <div className="rec-detail-stat-val">{selectedInfluencer.mlScore}</div>
-                    <div className="rec-detail-stat-label">ML Score</div>
-                  </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{selectedCampaign.status || 'draft'}</strong>
                 </div>
               </div>
+            )}
+          </>
+        )}
+      </div>
 
-              {/* Radar */}
-              <div style={{ height: 260, marginTop: 16 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
-                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                    <PolarAngleAxis dataKey="metric" stroke="#6b7280" fontSize={12} />
-                    <PolarRadiusAxis stroke="#374151" fontSize={10} />
-                    <Radar
-                      name="Performance"
-                      dataKey="value"
-                      stroke="#6366f1"
-                      fill="#6366f1"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="rec-detail-rate">
-                Estimated Rate: <span>${selectedInfluencer.rate?.toLocaleString() || 'N/A'}</span> per campaign
+      <div className="glass-card rec-results-panel">
+          <div className="chart-card-header">
+            <div>
+              <div className="chart-card-title">Top Influencers</div>
+              <div className="chart-card-subtitle">
+                {selectedCampaign ? `Highest to lowest for ${selectedCampaign.name}` : 'Select a campaign'}
               </div>
             </div>
-          ) : (
-            <div className="glass-card empty-state" style={{ minHeight: 400 }}>
-              <Users size={48} />
-              <p>Select an influencer to view details</p>
+            <Users size={18} color="var(--primary-600)" />
+          </div>
+
+          {summary && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+              <span className="score-badge score-medium">{summary.passed || 0} passed filters</span>
+              <span className="score-badge score-medium">{summary.filtered || 0} evaluated</span>
+              <span className="score-badge score-medium">{summary.campaign_goal}</span>
+              <span className="score-badge score-medium">
+                {Number(summary.follower_range?.min || 0).toLocaleString()} - {summary.follower_range?.max ? Number(summary.follower_range.max).toLocaleString() : 'No max'} followers
+              </span>
+              {summary.match_filters?.platform && <span className="score-badge score-medium">{summary.match_filters.platform}</span>}
+              {summary.match_filters?.niche && <span className="score-badge score-medium">{summary.match_filters.niche}</span>}
+              {summary.applied_match_level && <span className="score-badge score-medium">Matched by {summary.applied_match_level}</span>}
             </div>
           )}
-        </div>
+
+          {rankingLoading ? (
+            <div className="empty-state" style={{ minHeight: 260 }}>
+              <TrendingUp size={32} />
+              <p>Ranking influencers for this campaign...</p>
+            </div>
+          ) : !selectedCampaign ? (
+            <div className="empty-state" style={{ minHeight: 260 }}>
+              <Target size={32} />
+              <p>Select a campaign to view recommendations.</p>
+            </div>
+          ) : recommendations.length === 0 ? (
+            <div className="empty-state" style={{ minHeight: 260 }}>
+              <Users size={32} />
+              <p>No influencers passed the recommendation filters.</p>
+            </div>
+          ) : (
+            <>
+            <div className="rec-invite-bar">
+              <div>
+                <strong>{selectedRecommendations.length}</strong> selected for invitation
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={sendingInvites || selectedRecommendations.length === 0}
+                onClick={handleSendInvitations}
+              >
+                <Send size={16} />
+                {sendingInvites ? 'Sending...' : 'Send Invitations'}
+              </button>
+            </div>
+            <div className="rec-ranked-list">
+              {recommendations.map((rec) => {
+                const reasons = topReasons(rec.grading?.markers);
+                const recId = rec.influencer_user_id || rec.username || rec.name;
+                const checked = selectedInfluencerIds.includes(recId);
+                const statusMeta = invitationStatusMeta[rec.invitationStatus] || invitationStatusMeta.not_sent;
+                const StatusIcon = statusMeta.icon;
+                return (
+                  <article key={`${rec.rank}-${rec.name}`} className={`rec-rank-card ${rec.rank === 1 ? 'rec-rank-card-featured' : ''}`}>
+                    <div className="rec-rank-head">
+                      <div className="rec-rank-title">
+                        <span className="rank-badge rank-1">{rec.rank}</span>
+                        <div className="rec-avatar-sm">{String(rec.name || 'I').charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div className="rec-rank-name">
+                            {rec.name}
+                            {rec.rank === 1 && <span className="rec-top-tag"><Award size={12} /> Best match</span>}
+                            <span className={`rec-invite-status ${statusMeta.className}`}>
+                              <StatusIcon size={12} />
+                              {statusMeta.label}
+                            </span>
+                          </div>
+                          <div className="rec-rank-meta">
+                            {rec.platform} / {rec.category} / {Number(rec.followers || 0).toLocaleString()} followers
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rec-match-score">
+                        <strong>
+                          {Math.round(rec.mlScore)}%
+                        </strong>
+                        <span>match score</span>
+                      </div>
+                    </div>
+                    <label className="rec-select-influencer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={rec.invitationStatus === 'accepted'}
+                        onChange={() => toggleInfluencer(rec)}
+                      />
+                      {rec.invitationStatus === 'accepted' ? 'Accepted by influencer' : 'Select for invitation'}
+                    </label>
+
+                    <div className="rec-metric-grid">
+                      <div>
+                        <div className="rec-detail-stat-label">Engagement</div>
+                        <strong>{rec.engagement.toFixed(2)}%</strong>
+                      </div>
+                      <div>
+                        <div className="rec-detail-stat-label">Success</div>
+                        <strong>{Math.round(rec.successScore)}%</strong>
+                      </div>
+                      <div>
+                        <div className="rec-detail-stat-label">ROI</div>
+                        <strong>{rec.predictedROI.toFixed(1)}%</strong>
+                      </div>
+                      <div>
+                        <div className="rec-detail-stat-label">Conversion</div>
+                        <strong>{rec.conversion.toFixed(2)}%</strong>
+                      </div>
+                    </div>
+
+                    <div className="rec-why">
+                      <CheckCircle2 size={16} />
+                      <div>
+                        <strong>Why picked:</strong> {rec.reason}
+                        {reasons.length > 0 && (
+                          <div className="rec-signals">
+                            Top signals: {reasons.join(', ')}.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            </>
+          )}
       </div>
     </div>
   );

@@ -1,20 +1,48 @@
-import { useState, useMemo } from 'react';
-import { CheckCircle2, XCircle, Clock, Mail, DollarSign, Calendar } from 'lucide-react';
-import { campaignInvitations } from '../../data/dummyData';
+import { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, XCircle, Clock, Mail, Banknote, Calendar } from 'lucide-react';
+import { getInvitations, respondToInvitation } from '../../services/api';
+import SweetAlert from '../../components/common/SweetAlert';
 
 const Invitations = () => {
   const [tab, setTab] = useState('pending');
-  const [invitations, setInvitations] = useState(campaignInvitations);
+  const [invitations, setInvitations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [alert, setAlert] = useState(null);
+
+  useEffect(() => {
+    const loadInvitations = async () => {
+      const data = await getInvitations();
+      setInvitations(data);
+      setLoading(false);
+    };
+    loadInvitations();
+  }, []);
 
   const filtered = useMemo(
     () => invitations.filter(inv => inv.status === tab),
     [invitations, tab]
   );
 
-  const handleAction = (id, action) => {
-    setInvitations(prev =>
-      prev.map(inv => inv.id === id ? { ...inv, status: action } : inv)
-    );
+  const handleAction = async (id, action) => {
+    try {
+      await respondToInvitation(id, action);
+      const invite = invitations.find((item) => item.id === id);
+      setInvitations(prev =>
+        prev.map(inv => inv.id === id ? { ...inv, status: action } : inv)
+      );
+      setAlert({
+        type: 'success',
+        title: action === 'accepted' ? 'Invitation accepted' : 'Invitation declined',
+        message: `${invite?.campaignName || 'The campaign invitation'} was ${action === 'accepted' ? 'accepted' : 'declined'} successfully.`,
+      });
+    } catch (error) {
+      console.warn('Unable to update invitation:', error.message);
+      setAlert({
+        type: 'error',
+        title: 'Action failed',
+        message: error.message || 'Unable to update this invitation.',
+      });
+    }
   };
 
   const tabs = [
@@ -24,15 +52,29 @@ const Invitations = () => {
   ];
 
   const statusColors = {
-    pending: { bg: 'rgba(250, 204, 21, 0.1)', border: 'rgba(250, 204, 21, 0.2)', color: 'var(--warning-400)' },
-    accepted: { bg: 'rgba(34, 197, 94, 0.1)', border: 'rgba(34, 197, 94, 0.2)', color: 'var(--success-400)' },
-    declined: { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', color: 'var(--danger-400)' },
+    pending: { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.24)', color: 'var(--warning-400)' },
+    accepted: { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.24)', color: 'var(--success-400)' },
+    declined: { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.24)', color: 'var(--danger-400)' },
   };
 
   return (
     <div>
+      <SweetAlert
+        open={Boolean(alert)}
+        type={alert?.type}
+        title={alert?.title}
+        message={alert?.message}
+        onClose={() => setAlert(null)}
+      />
+
       <h2 className="page-title">Campaign Invitations</h2>
       <p className="page-subtitle">Manage campaign invitations from brands</p>
+
+      {loading && (
+        <div className="glass-card" style={{ marginBottom: 16, padding: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>Loading platform invitations...</div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="inv-tabs">
@@ -83,14 +125,12 @@ const Invitations = () => {
 
               <div className="inv-card-meta">
                 <div className="inv-meta-item">
-                  <DollarSign size={14} />
-                  <span>${inv.budget.toLocaleString()}</span>
+                  <Banknote size={14} />
+                  <span>₦{inv.budget.toLocaleString()}</span>
                 </div>
-                <div className="inv-meta-item">
-                  <span className={`category-badge category-${inv.category.toLowerCase()}`}>
-                    {inv.category}
-                  </span>
-                </div>
+                <span className={`category-badge category-${inv.category.toLowerCase()}`}>
+                  {inv.category}
+                </span>
                 <div className="inv-meta-item">
                   <Calendar size={14} />
                   <span>Due {new Date(inv.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>

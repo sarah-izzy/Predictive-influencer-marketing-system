@@ -17,6 +17,7 @@ const BrandSidebar = ({ isOpen, onClose }) => {
   const navLinks = [
     { name: 'Overview', path: '/brand/overview', icon: LayoutDashboard },
     { name: 'Create Campaign', path: '/brand/campaigns/create', icon: PlusCircle },
+    { name: 'Influencers', path: '/brand/influencers', icon: Users },
     { name: 'Recommendations', path: '/brand/recommendations', icon: Users },
     { name: 'Analytics', path: '/brand/analytics', icon: BarChart3 },
     { name: 'About', path: '/brand/about', icon: Info },
@@ -65,7 +66,7 @@ const BrandSidebar = ({ isOpen, onClose }) => {
 
         {user && (
           <div className="sidebar-user-card">
-            <div className="sidebar-user-avatar" style={{ background: 'linear-gradient(135deg, var(--primary-600), var(--accent-500))' }}>
+            <div className="sidebar-user-avatar" style={{ background: 'var(--primary-600)' }}>
               {user.avatar}
             </div>
             <div className="sidebar-user-info">

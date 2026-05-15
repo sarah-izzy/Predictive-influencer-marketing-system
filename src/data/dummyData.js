@@ -11,7 +11,7 @@ export const influencers = [
     successScore: 88,
     predictedROI: 142,
     avgViews: 42000,
-    color: '#60a5fa',
+    color: '#F97316',
     platform: 'Instagram',
     rate: 5000,
   },
@@ -26,7 +26,7 @@ export const influencers = [
     successScore: 92,
     predictedROI: 168,
     avgViews: 31000,
-    color: '#4ade80',
+    color: '#F97316',
     platform: 'TikTok',
     rate: 3500,
   },
@@ -41,7 +41,7 @@ export const influencers = [
     successScore: 75,
     predictedROI: 98,
     avgViews: 58000,
-    color: '#c084fc',
+    color: '#F97316',
     platform: 'YouTube',
     rate: 8000,
   },
@@ -56,7 +56,7 @@ export const influencers = [
     successScore: 95,
     predictedROI: 210,
     avgViews: 22000,
-    color: '#fb923c',
+    color: '#F97316',
     platform: 'Instagram',
     rate: 2500,
   },
@@ -71,7 +71,7 @@ export const influencers = [
     successScore: 82,
     predictedROI: 125,
     avgViews: 38000,
-    color: '#f472b6',
+    color: '#F97316',
     platform: 'TikTok',
     rate: 4500,
   },
@@ -86,7 +86,7 @@ export const influencers = [
     successScore: 86,
     predictedROI: 138,
     avgViews: 29000,
-    color: '#fbbf24',
+    color: '#F97316',
     platform: 'Instagram',
     rate: 4000,
   },
@@ -130,10 +130,10 @@ export const categoryPerformance = [
 
 // ===== Platform Distribution =====
 export const platformData = [
-  { name: 'Instagram', value: 42, color: '#e1306c' },
-  { name: 'TikTok', value: 28, color: '#69c9d0' },
-  { name: 'YouTube', value: 18, color: '#ff0000' },
-  { name: 'Twitter/X', value: 12, color: '#1da1f2' },
+  { name: 'Instagram', value: 42, color: '#F97316' },
+  { name: 'TikTok', value: 28, color: '#F97316' },
+  { name: 'YouTube', value: 18, color: '#F97316' },
+  { name: 'Twitter/X', value: 12, color: '#F97316' },
 ];
 
 // ===== Campaigns =====

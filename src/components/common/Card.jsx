@@ -4,7 +4,7 @@ const Card = ({ title, value, subtext, icon: Icon, iconBg, change, changeType, g
   <div className="stat-card">
     <div className="stat-card-glow" style={{ background: glowColor || 'var(--primary-500)' }} />
     <div className="stat-card-header">
-      <div className="stat-card-icon" style={{ background: iconBg || 'linear-gradient(135deg, var(--primary-500), var(--primary-600))' }}>
+      <div className="stat-card-icon" style={{ background: iconBg || 'var(--primary-600)' }}>
         {Icon && <Icon size={20} />}
       </div>
       {change && (

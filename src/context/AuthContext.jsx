@@ -1,48 +1,40 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
+import { getAuthToken, getCurrentUser, loginUser, setAuthToken, signupUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
-const mockUsers = {
-  'brand@test.com': {
-    id: 'brand-001',
-    name: 'Acme Marketing',
-    email: 'brand@test.com',
-    username: 'brand_user',
-    role: 'brand',
-    avatar: 'A',
-    company: 'Acme Corp',
-  },
-  'influencer@test.com': {
-    id: 'inf-004',
-    name: 'Travel Vibes',
-    email: 'influencer@test.com',
-    username: 'travel_vibes',
-    role: 'influencer',
-    avatar: 'T',
-    category: 'Lifestyle',
-    followers: 45000,
-    tier: 'Rising Star',
-  },
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('influencerAI_user');
-    return saved ? JSON.parse(saved) : null;
-  });
-
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState(() => {
     const saved = localStorage.getItem('influencerAI_role');
     return saved ? JSON.parse(saved) : null;
   });
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('influencerAI_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('influencerAI_user');
-    }
-  }, [user]);
+    const restoreSession = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const data = await getCurrentUser();
+        setUser(data.user);
+        setSelectedRole(data.user.role);
+      } catch {
+        setAuthToken(null);
+        setUser(null);
+        setSelectedRole(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
 
   useEffect(() => {
     if (selectedRole) {
@@ -56,30 +48,41 @@ export const AuthProvider = ({ children }) => {
     setSelectedRole(role);
   };
 
-  // Demo login - in production, this would make an API call
-  const login = (email, username, password, role) => {
-    // For demo purposes, accept any credentials if role is set
-    const userData = {
-      id: role === 'brand' ? `brand-${Date.now()}` : `inf-${Date.now()}`,
-      name: username,
-      email: email,
-      username: username,
-      role: role,
-      avatar: username.charAt(0).toUpperCase(),
-      ...(role === 'brand' ? { company: 'Demo Company' } : { category: 'Lifestyle', followers: 10000, tier: 'Growing' }),
-    };
-    setUser(userData);
-    setSelectedRole(role);
-    return userData;
+  const login = async (email, username, password, role) => {
+    const data = await loginUser({ email, username, password, role });
+    setAuthToken(data.token);
+    setUser(data.user);
+    setSelectedRole(data.user.role);
+    return data.user;
+  };
+
+  const signup = async ({ name, email, username, password, role, category, followers }) => {
+    const data = await signupUser({ name, email, username, password, role, category, followers });
+    setAuthToken(data.token);
+    setUser(data.user);
+    setSelectedRole(data.user.role);
+    return data.user;
   };
 
   const logout = () => {
+    setAuthToken(null);
     setUser(null);
     setSelectedRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, selectedRole, setRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        signup,
+        logout,
+        authLoading,
+        isAuthenticated: !!user,
+        selectedRole,
+        setRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

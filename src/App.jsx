@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 
@@ -17,6 +17,7 @@ import Home from './pages/Home';
 import BrandOverview from './pages/brand/BrandOverview';
 import CampaignCreate from './pages/brand/CampaignCreate';
 import Recommendations from './pages/brand/Recommendations';
+import InfluencerManagement from './pages/brand/InfluencerManagement';
 import BrandAnalytics from './pages/brand/BrandAnalytics';
 import About from './pages/About';
 
@@ -31,6 +32,7 @@ import './App.css';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const mainContentRef = useRef(null);
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
 
@@ -38,6 +40,16 @@ function App() {
   const isHomePage = location.pathname === '/';
   const isBrand = user?.role === 'brand';
   const isInfluencer = user?.role === 'influencer';
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+    setSidebarOpen(false);
+  }, [location.pathname, location.key]);
 
   return (
     <div className={`app-layout ${(isLoginPage || isHomePage) ? 'no-sidebar' : ''}`}>
@@ -58,7 +70,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className={`main-content ${(isLoginPage || isHomePage) ? 'main-content-full' : ''}`}>
+      <main ref={mainContentRef} className={`main-content ${(isLoginPage || isHomePage) ? 'main-content-full' : ''}`}>
         <Routes>
           {/* Public */}
           <Route path="/" element={<Home />} />
@@ -73,6 +85,9 @@ function App() {
           } />
           <Route path="/brand/recommendations" element={
             <ProtectedRoute allowedRole="brand"><Recommendations /></ProtectedRoute>
+          } />
+          <Route path="/brand/influencers" element={
+            <ProtectedRoute allowedRole="brand"><InfluencerManagement /></ProtectedRoute>
           } />
           <Route path="/brand/analytics" element={
             <ProtectedRoute allowedRole="brand"><BrandAnalytics /></ProtectedRoute>

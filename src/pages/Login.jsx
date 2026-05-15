@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const Login = () => {
-  const { login, selectedRole, setRole } = useAuth();
+  const { login, signup, selectedRole, setRole } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('signin');
@@ -34,9 +34,51 @@ const Login = () => {
     name: '',
     email: '',
     username: '',
+    category: 'Lifestyle',
+    followers: '',
     password: '',
     confirmPassword: '',
   });
+
+  const influencerCategories = [
+    'Lifestyle',
+    'Tech',
+    'Fashion',
+    'Gaming',
+    'Health',
+    'Food',
+    'Beauty',
+    'Fitness',
+    'Travel',
+    'Finance',
+  ];
+
+  const followerRangeValue = Math.min(
+    5_000_000,
+    Math.max(0, Number(signUpForm.followers || 10000))
+  );
+
+  const formatFollowerCount = (value) => {
+    const count = Number(value || 0);
+    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(count % 1_000_000 === 0 ? 0 : 1)}M`;
+    if (count >= 1_000) return `${Math.round(count / 1_000)}K`;
+    return count.toLocaleString();
+  };
+
+  const demoCredentials = {
+    brand: {
+      label: 'Brand demo',
+      email: 'brand@test.com',
+      username: 'brand_user',
+      password: 'password123',
+    },
+    influencer: {
+      label: 'Influencer demo',
+      email: 'influencer@test.com',
+      username: 'travel_vibes',
+      password: 'password123',
+    },
+  };
 
   const handleRoleSelect = (role) => {
     setRole(role);
@@ -47,11 +89,30 @@ const Login = () => {
     setRole(null);
     setError('');
     setSignInForm({ email: '', username: '', password: '' });
-    setSignUpForm({ name: '', email: '', username: '', password: '', confirmPassword: '' });
+    setSignUpForm({
+      name: '',
+      email: '',
+      username: '',
+      category: 'Lifestyle',
+      followers: '',
+      password: '',
+      confirmPassword: '',
+    });
   };
 
   const handleBackToHome = () => {
     navigate('/');
+  };
+
+  const handleFillDemoCredentials = () => {
+    const demo = demoCredentials[selectedRole];
+    setActiveTab('signin');
+    setError('');
+    setSignInForm({
+      email: demo.email,
+      username: demo.username,
+      password: demo.password,
+    });
   };
 
   const validateSignIn = () => {
@@ -83,6 +144,17 @@ const Login = () => {
       setError('Invalid email format');
       return false;
     }
+    if (selectedRole === 'influencer') {
+      const followers = Number(signUpForm.followers);
+      if (!signUpForm.category) {
+        setError('Choose your influencer category');
+        return false;
+      }
+      if (!signUpForm.followers || !Number.isFinite(followers) || followers < 0) {
+        setError('Enter a valid followers count');
+        return false;
+      }
+    }
     return true;
   };
 
@@ -92,11 +164,10 @@ const Login = () => {
     if (!validateSignIn()) return;
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      login(signInForm.email, signInForm.username, signInForm.password, selectedRole);
-      navigate(selectedRole === 'brand' ? '/brand/overview' : '/influencer/overview');
-    } catch {
-      setError('Sign in failed. Please try again.');
+      await login(signInForm.email, signInForm.username, signInForm.password, selectedRole);
+      navigate(selectedRole === 'brand' ? '/brand/overview' : '/influencer/profile');
+    } catch (err) {
+      setError(err.message || 'Sign in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -108,11 +179,18 @@ const Login = () => {
     if (!validateSignUp()) return;
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      login(signUpForm.email, signUpForm.username, signUpForm.password, selectedRole);
-      navigate(selectedRole === 'brand' ? '/brand/overview' : '/influencer/overview');
-    } catch {
-      setError('Sign up failed. Please try again.');
+      await signup({
+        name: signUpForm.name,
+        email: signUpForm.email,
+        username: signUpForm.username,
+        password: signUpForm.password,
+        role: selectedRole,
+        category: selectedRole === 'influencer' ? signUpForm.category : undefined,
+        followers: selectedRole === 'influencer' ? Number(signUpForm.followers) : undefined,
+      });
+      navigate(selectedRole === 'brand' ? '/brand/overview' : '/influencer/profile');
+    } catch (err) {
+      setError(err.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -123,24 +201,27 @@ const Login = () => {
       icon: Briefcase,
       title: 'Brand Marketer',
       subtitle: 'Create campaigns, discover influencers, and track ROI',
+      description: 'Plan campaigns, run ML recommendations, and invite creators who match your audience.',
+      stats: ['Campaign ROI', 'Influencer ranking', 'Reports'],
       color: 'var(--primary-500)',
       lightColor: 'var(--primary-50)',
       borderColor: 'var(--primary-200)',
-      bgGradient: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
     },
     influencer: {
       icon: Users,
       title: 'Influencer',
       subtitle: 'Grow your brand and monetize your influence',
+      description: 'Manage your profile, receive brand invitations, and track accepted campaign activity.',
+      stats: ['Profile metrics', 'Brand invites', 'Earnings'],
       color: 'var(--accent-500)',
-      lightColor: 'rgb(250, 245, 255)',
+      lightColor: 'var(--primary-50)',
       borderColor: 'var(--accent-400)',
-      bgGradient: 'linear-gradient(135deg, var(--accent-500), var(--accent-600))',
     },
   };
 
   const currentConfig = selectedRole ? roleConfig[selectedRole] : null;
   const RoleIcon = currentConfig?.icon;
+  const currentDemo = selectedRole ? demoCredentials[selectedRole] : null;
 
   return (
     <div className="auth-page">
@@ -241,6 +322,25 @@ const Login = () => {
                   Create Account
                 </button>
               </div>
+
+              {activeTab === 'signin' && currentDemo && (
+                <div className="auth-demo-panel">
+                  <div>
+                    <p className="auth-demo-label">{currentDemo.label}</p>
+                    <p className="auth-demo-details">
+                      {currentDemo.email} | {currentDemo.username}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="auth-demo-fill-btn"
+                    onClick={handleFillDemoCredentials}
+                    style={{ backgroundColor: currentConfig.color }}
+                  >
+                    Fill demo
+                  </button>
+                </div>
+              )}
 
               {/* Error Message */}
               {error && (
@@ -372,6 +472,64 @@ const Login = () => {
                       />
                     </div>
                   </div>
+
+                  {selectedRole === 'influencer' && (
+                    <>
+                      <div className="auth-form-group">
+                        <label className="auth-label">Category</label>
+                        <div className="auth-input-wrapper">
+                          <Users size={18} className="auth-input-icon" />
+                          <select
+                            value={signUpForm.category}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, category: e.target.value })}
+                            className="auth-input"
+                          >
+                            {influencerCategories.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="auth-form-group">
+                        <label className="auth-label">Followers Count</label>
+                        <div className="auth-input-wrapper">
+                          <TrendingUp size={18} className="auth-input-icon" />
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="Enter your followers count"
+                            value={signUpForm.followers}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, followers: e.target.value })}
+                            className="auth-input"
+                          />
+                        </div>
+                        <div className="followers-range-panel">
+                          <div className="followers-range-top">
+                            <span>Range</span>
+                            <strong>{formatFollowerCount(followerRangeValue)} followers</strong>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="5000000"
+                            step="1000"
+                            value={followerRangeValue}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, followers: e.target.value })}
+                            className="followers-range-input"
+                          />
+                          <div className="followers-range-scale">
+                            <span>0</span>
+                            <span>1M</span>
+                            <span>5M</span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="auth-form-group">
                     <label className="auth-label">Password</label>

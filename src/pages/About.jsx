@@ -8,7 +8,7 @@ const About = () => {
         <div style={{
           width: 64, height: 64,
           borderRadius: 'var(--radius-lg)',
-          background: 'linear-gradient(135deg, var(--primary-500), var(--accent-500))',
+          background: 'var(--primary-600)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 20px',
         }}>

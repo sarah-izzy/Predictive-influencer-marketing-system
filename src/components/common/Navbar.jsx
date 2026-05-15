@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Home,
-  BrainCircuit,
+  PlusCircle,
   BarChart3,
   Info,
   TrendingUp,
+  Users,
 } from 'lucide-react';
 
 const Navbar = ({ isOpen, onClose }) => {
@@ -14,10 +15,11 @@ const Navbar = ({ isOpen, onClose }) => {
 
   const navLinks = [
     { name: 'Home', path: '/', icon: Home },
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Prediction', path: '/prediction', icon: BrainCircuit },
-    { name: 'Analysis', path: '/analysis', icon: BarChart3 },
-    { name: 'About', path: '/about', icon: Info },
+    { name: 'Brand Overview', path: '/brand/overview', icon: LayoutDashboard },
+    { name: 'Create Campaign', path: '/brand/campaigns/create', icon: PlusCircle },
+    { name: 'Recommendations', path: '/brand/recommendations', icon: Users },
+    { name: 'Analytics', path: '/brand/analytics', icon: BarChart3 },
+    { name: 'About', path: '/brand/about', icon: Info },
   ];
 
   return (
@@ -56,11 +58,11 @@ const Navbar = ({ isOpen, onClose }) => {
         </div>
         <div style={{
           padding: '12px 16px',
-          background: 'rgba(99, 102, 241, 0.06)',
+          background: 'rgba(249, 115, 22, 0.08)',
           borderRadius: 'var(--radius-sm)',
-          border: '1px solid rgba(99, 102, 241, 0.1)',
+          border: '1px solid rgba(249, 115, 22, 0.14)',
         }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>
             ML Model v2.4
           </div>
           <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
@@ -69,14 +71,14 @@ const Navbar = ({ isOpen, onClose }) => {
           <div style={{
             marginTop: 8,
             height: 4,
-            background: 'rgba(255,255,255,0.06)',
+            background: 'var(--gray-200)',
             borderRadius: 2,
             overflow: 'hidden',
           }}>
             <div style={{
               width: '92%',
               height: '100%',
-              background: 'linear-gradient(90deg, var(--primary-500), var(--accent-500))',
+              background: 'var(--primary-600)',
               borderRadius: 2,
             }} />
           </div>

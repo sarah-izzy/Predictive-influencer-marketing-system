@@ -49,16 +49,20 @@ const Prediction = () => {
       const response = await predictCampaign(formData);
       // Map backend response to frontend format
       const mappedResult = {
-        predictedSuccessScore: Math.round((response.data.pred_success || 0) * 100),
-        predictedEngagementRate: (response.data.pred_er || 0) * 100,
-        predictedConversionRate: (response.data.pred_cvr || 0) * 100,
-        predictedRevenue: response.data.pred_revenue || 0,
+        predictedSuccessScore: Math.round((response.data.success_probability || 0) * 100),
+        predictedEngagementRate: response.data.pred_engagement_rate || 0,
+        predictedConversionRate: response.data.pred_conversion_rate || 0,
+        predictedRevenue: response.data.pred_revenue_usd || 0,
         confidence: 0.85, // Default confidence for now
+        recommendation:
+          (response.data.success_probability || 0) > 0.8
+            ? 'Highly recommended based on the current model prediction.'
+            : 'Review campaign details before committing budget.',
         // Backend raw values
-        pred_er: response.data.pred_er,
-        pred_cvr: response.data.pred_cvr,
-        pred_success: response.data.pred_success,
-        pred_revenue: response.data.pred_revenue,
+        pred_er: response.data.pred_engagement_rate,
+        pred_cvr: response.data.pred_conversion_rate,
+        pred_success: response.data.success_probability,
+        pred_revenue: response.data.pred_revenue_usd,
       };
       setResult(mappedResult);
     } catch (error) {
@@ -72,8 +76,8 @@ const Prediction = () => {
   /* Radial data for the result gauge */
   const gaugeData = result
     ? [
-        { name: 'Score', value: result.predictedSuccessScore, fill: result.predictedSuccessScore > 80 ? '#22c55e' : '#eab308' },
-        { name: 'Remaining', value: 100 - result.predictedSuccessScore, fill: 'rgba(255,255,255,0.04)' },
+        { name: 'Score', value: result.predictedSuccessScore, fill: '#F97316' },
+        { name: 'Remaining', value: 100 - result.predictedSuccessScore, fill: 'var(--gray-200)' },
       ]
     : [];
 
@@ -104,13 +108,13 @@ const Prediction = () => {
             <div style={{
               width: 36, height: 36,
               borderRadius: 'var(--radius-sm)',
-              background: 'linear-gradient(135deg, var(--primary-500), var(--accent-500))',
+              background: 'var(--primary-600)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <BrainCircuit size={18} color="white" />
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#e2e8f0' }}>Input Metrics</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)' }}>Input Metrics</div>
               <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>Fill in the influencer data below</div>
             </div>
           </div>
@@ -195,7 +199,7 @@ const Prediction = () => {
                     <RadialBar
                       dataKey="value"
                       cornerRadius={10}
-                      background={{ fill: 'rgba(255,255,255,0.04)' }}
+                      background={{ fill: 'var(--gray-200)' }}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
@@ -207,7 +211,7 @@ const Prediction = () => {
                 marginBottom: 60,
               }}>
                 <div className="result-score" style={{
-                  color: result.predictedSuccessScore > 80 ? '#22c55e' : '#eab308',
+                  color: 'var(--gray-900)',
                 }}>
                   {result.predictedSuccessScore}%
                 </div>
